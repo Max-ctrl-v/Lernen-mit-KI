@@ -18,6 +18,16 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-base">
+      {/* Skip to content — accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50
+          focus:px-4 focus:py-2 focus:rounded-lg focus:bg-brand-600 focus:text-white focus:font-semibold
+          focus:shadow-floating focus:outline-none"
+      >
+        Zum Inhalt springen
+      </a>
+
       {/* Header with gradient */}
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-800" />
@@ -118,7 +128,7 @@ export default function Layout({ children }) {
         )}
       </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main id="main-content" className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8" role="main">
         {children}
       </main>
 

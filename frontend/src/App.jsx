@@ -3,8 +3,10 @@ import { Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SessionProvider } from './context/SessionContext';
 import { QuizProvider } from './context/QuizContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
+import { SkeletonPage } from './components/SkeletonCard';
 
 // Lazy load all pages — only downloaded when navigated to
 const StartPage = lazy(() => import('./pages/StartPage'));
@@ -19,18 +21,16 @@ const QuizResultsPage = lazy(() => import('./pages/QuizResultsPage'));
 const QuizHistoryPage = lazy(() => import('./pages/QuizHistoryPage'));
 
 function PageLoader() {
-  return (
-    <div className="flex items-center justify-center py-20">
-      <div className="w-8 h-8 rounded-full border-[3px] border-brand-200 border-t-brand-600 animate-spin" />
-    </div>
-  );
+  return <SkeletonPage />;
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AuthGate />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
