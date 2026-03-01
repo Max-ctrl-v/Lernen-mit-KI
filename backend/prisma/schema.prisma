@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id                  String    @id @default(cuid())
+  mode                String    // PRACTICE or EXAM
+  phase               String    @default("MEMORIZE") // MEMORIZE | DISTRACTION | RECALL | COMPLETED
+  memorizeDuration    Int       @default(480)
+  distractionDuration Int       @default(2400)
+  recallDuration      Int       @default(900)
+  memorizeTimeSpent   Int?
+  recallTimeSpent     Int?
+  score               Int?
+  maxScore            Int       @default(25)
+  createdAt           DateTime  @default(now())
+  completedAt         DateTime?
+
+  cards     Card[]
+  questions Question[]
+}
+
+model Card {
+  id         String  @id @default(cuid())
+  sessionId  String
+  session    Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  position   Int
+  photoUrl   String
+  name       String
+  birthDay   Int
+  birthMonth Int
+  medication Boolean
+  bloodType  String
+  allergies  String // JSON array
+  idNumber   String
+  country    String
+
+  @@unique([sessionId, position])
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  sessionId     String
+  session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  position      Int
+  questionText  String
+  fieldTested   String
+  targetCardId  String?
+  options       String // JSON array of 5 options
+  correctIndex  Int
+  selectedIndex Int?
+  isCorrect     Boolean?
+
+  @@unique([sessionId, position])
+}
+
+model Quiz {
+  id            String    @id @default(cuid())
+  title         String
+  sourceFile    String
+  sourceType    String    // pdf | txt | image
+  extractedText String
+  questionCount Int
+  score         Int?
+  maxScore      Int
+  status        String    @default("READY") // READY | IN_PROGRESS | COMPLETED
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  questions QuizQuestion[]
+}
+
+model QuizQuestion {
+  id            String   @id @default(cuid())
+  quizId        String
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  position      Int
+  questionText  String
+  options       String   // JSON array of 4 options
+  correctIndex  Int      // 0-3
+  explanation   String
+  imageUrl      String?  // DALL-E generated image
+  selectedIndex Int?
+  isCorrect     Boolean?
+
+  @@unique([quizId, position])
+}

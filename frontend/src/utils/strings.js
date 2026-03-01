@@ -1,0 +1,122 @@
+export const UI = {
+  appTitle: 'MedAT Allergieausweise Trainer',
+  practiceMode: 'Übungsmodus',
+  practiceModeDesc: 'Kein Zeitdruck. Sofortiges Feedback. Karten während Abfrage einsehbar.',
+  examMode: 'Prüfungsmodus',
+  examModeDesc: 'Wie im echten MedAT: 8 Min. einprägen, Ablenkungsphase, 15 Min. Abfrage.',
+  startSession: 'Neue Sitzung starten',
+  memorizePhase: 'Einprägephase',
+  distractionPhase: 'Ablenkungsphase',
+  recallPhase: 'Abfragephase',
+  card: 'Karte',
+  of: 'von',
+  question: 'Frage',
+  submit: 'Abgeben',
+  skip: 'Überspringen',
+  next: 'Weiter',
+  previous: 'Zurück',
+  score: 'Ergebnis',
+  points: 'Punkte',
+  history: 'Verlauf',
+  practiceAgain: 'Erneut üben',
+  showHistory: 'Verlauf anzeigen',
+  noneCorrect: 'Keine der angegebenen Antworten ist korrekt',
+  distractionMinutes: 'Ablenkungsdauer (Minuten)',
+  distractionMsg: 'In der echten Prüfung würdest du jetzt andere Untertests bearbeiten.',
+  numberSequences: 'Zahlenfolgen',
+  wordFluency: 'Wortflüssigkeit',
+  confirmSubmit: 'Wirklich abgeben? Du kannst die Antworten danach nicht mehr ändern.',
+  noHistory: 'Noch keine abgeschlossenen Sitzungen.',
+  totalSessions: 'Sitzungen gesamt',
+  averageScore: 'Durchschnitt',
+  bestScore: 'Beste Punktzahl',
+  trend: 'Tendenz',
+  improving: 'Verbessernd',
+  declining: 'Abnehmend',
+  neutral: 'Stabil',
+  fieldPerformance: 'Leistung nach Kategorie',
+  correct: 'Richtig',
+  incorrect: 'Falsch',
+  unanswered: 'Nicht beantwortet',
+  timeUp: 'Zeit abgelaufen!',
+
+  // Field labels
+  name: 'Name',
+  birthday: 'Geburtstag',
+  medication: 'Medikamenteneinnahme',
+  bloodType: 'Blutgruppe',
+  allergies: 'Bekannte Allergien',
+  idNumber: 'Ausweisnummer',
+  country: 'Ausstellungsland',
+  photo: 'Foto',
+  noAllergies: 'Keine',
+
+  // Quiz from Upload
+  quizUpload: 'Quiz erstellen',
+  quizUploadTitle: 'Quiz aus Lernmaterial',
+  quizUploadDesc: 'Lade dein Lernmaterial hoch und lass automatisch ein Quiz erstellen.',
+  uploadFile: 'Datei hochladen',
+  supportedFormats: 'Unterstützte Formate: PDF, TXT, PNG, JPG',
+  questionCountLabel: 'Anzahl der Fragen',
+  generateQuiz: 'Quiz generieren',
+  generating: 'Quiz wird generiert...',
+  startQuiz: 'Quiz starten',
+  quizSubmit: 'Quiz abgeben',
+  quizResults: 'Quiz-Ergebnis',
+  quizExplanation: 'Erklärung',
+  quizHistory: 'Quiz-Verlauf',
+  noQuizHistory: 'Noch keine abgeschlossenen Quizze.',
+  quizAgain: 'Neues Quiz erstellen',
+  uploadError: 'Fehler beim Hochladen. Bitte versuche es erneut.',
+  dragDropHint: 'Datei hier hinziehen oder klicken zum Auswählen',
+  fileSelected: 'Datei ausgewählt',
+  quizConfirmSubmit: 'Wirklich abgeben? Du kannst die Antworten danach nicht mehr ändern.',
+  quizRetake: 'Erneut spielen',
+  quizHistoryTitle: 'Quiz-Verlauf',
+  skipImages: 'Ohne Bilder (schneller)',
+  skipImagesDesc: 'Überspringt die Bildgenerierung — spart ca. 1 Minute.',
+  fileTooLarge: 'Die Datei ist zu groß (max. 10 MB).',
+  rateLimitTitle: 'Limit erreicht',
+  rateLimitBypass: 'Code eingeben um fortzufahren',
+  bypassPlaceholder: 'Code eingeben...',
+  bypassSubmit: 'Freischalten',
+  exportResults: 'Ergebnis kopieren',
+  exportCopied: 'Kopiert!',
+  progressAnalyzing: 'Datei wird analysiert...',
+  progressExtracting: 'Text wird extrahiert...',
+  progressGenerating: 'Fragen werden generiert...',
+  progressImages: 'Bilder werden erstellt...',
+  progressFinalizing: 'Fast fertig...',
+  noQuizzes: 'Noch keine Quizze abgeschlossen.',
+
+  // Medication values
+  yes: 'Ja',
+  no: 'Nein',
+
+  // Months (Austrian German)
+  months: [
+    'Jänner', 'Februar', 'März', 'April', 'Mai', 'Juni',
+    'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+  ],
+};
+
+export function formatBirthday(day, month) {
+  return `${day}. ${UI.months[month - 1]}`;
+}
+
+export function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+export const FIELD_LABELS = {
+  name: UI.name,
+  bloodType: UI.bloodType,
+  allergies: UI.allergies,
+  idNumber: UI.idNumber,
+  birthDay: UI.birthday,
+  birthMonth: UI.birthday,
+  medication: UI.medication,
+  country: UI.country,
+};

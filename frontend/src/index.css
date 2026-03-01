@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  h1, h2, h3 {
+    font-family: 'DM Serif Display', Georgia, serif;
+    letter-spacing: -0.03em;
+  }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    line-height: 1.7;
+  }
+}
+
+@layer components {
+  /* Grain overlay for sections that need texture */
+  .grain-overlay {
+    position: relative;
+  }
+  .grain-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    filter: url(#grain);
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Custom range slider */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(to right, #14bd6e, #3dd68e);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #14bd6e;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+  }
+  input[type="range"]::-webkit-slider-thumb:active {
+    transform: scale(0.95);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #14bd6e;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    cursor: pointer;
+  }
+
+  /* Interactive button base */
+  .btn-brand {
+    @apply px-6 py-3 rounded-xl font-semibold text-white transition-transform;
+    background: linear-gradient(135deg, #14bd6e 0%, #099958 100%);
+    box-shadow: 0 2px 4px rgba(9,153,88,0.2), 0 8px 24px rgba(9,153,88,0.15);
+  }
+  .btn-brand:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(9,153,88,0.25), 0 16px 32px rgba(9,153,88,0.2);
+  }
+  .btn-brand:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(20,189,110,0.4), 0 2px 4px rgba(9,153,88,0.2);
+  }
+  .btn-brand:active {
+    transform: translateY(1px);
+  }
+  .btn-brand:disabled {
+    opacity: 0.5;
+    transform: none;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 rounded-xl font-semibold transition-transform;
+    background: rgba(255,255,255,0.9);
+    color: #0b7a49;
+    border: 1.5px solid #b5f5d6;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .btn-secondary:hover {
+    transform: translateY(-1px);
+    background: #effef7;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  }
+  .btn-secondary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(20,189,110,0.3);
+  }
+  .btn-secondary:active {
+    transform: translateY(1px);
+  }
+
+  /* Card surface */
+  .surface-raised {
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  }
+  .surface-elevated {
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.04), 0 4px 8px rgba(0,0,0,0.04), 0 16px 32px rgba(0,0,0,0.06), 0 0 0 1px rgba(255,255,255,0.08) inset;
+  }
+
+  /* Score ring SVG animation */
+  .score-ring-circle {
+    transition: stroke-dashoffset 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
