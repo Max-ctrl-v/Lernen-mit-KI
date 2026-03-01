@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import helmet from 'helmet';
 import authRouter from './routes/auth.js';
@@ -22,6 +23,7 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:8081',
   credentials: true,
 }));
+app.use(compression());
 app.use(express.json());
 
 // Public routes (no auth required)
