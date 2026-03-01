@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "build": "npx prisma generate && npx prisma db push",
     "dev": "node --watch src/server.js",
     "start": "node src/server.js"
   },
