@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "npx prisma generate && npx prisma db push",
+    "build": "npx prisma generate",
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "npx prisma db push && node src/server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
