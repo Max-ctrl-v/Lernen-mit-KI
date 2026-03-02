@@ -14,6 +14,9 @@ import { errorHandler } from './middleware/errorHandler.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust first proxy (Railway/Vercel) so req.ip returns real client IP
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -24,7 +27,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(compression());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 
 // Public routes (no auth required)
 app.use('/api/auth', authRouter);

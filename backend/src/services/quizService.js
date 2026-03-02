@@ -6,6 +6,20 @@ import { generateImage } from './imageGenerator.js';
 
 const prisma = new PrismaClient();
 
+// Shared select to exclude extractedText from API responses
+const quizSelect = {
+  id: true, title: true, sourceFile: true, sourceType: true,
+  questionCount: true, maxScore: true, score: true,
+  status: true, createdAt: true, completedAt: true,
+};
+
+const quizWithQuestions = {
+  select: {
+    ...quizSelect,
+    questions: { orderBy: { position: 'asc' } },
+  },
+};
+
 export async function createQuiz(file, questionCount, skipImages = false) {
   const ext = file.originalname.split('.').pop().toLowerCase();
   const sourceType = ext === 'pdf' ? 'pdf' : ext === 'txt' ? 'txt' : 'image';
@@ -62,7 +76,7 @@ export async function createQuiz(file, questionCount, skipImages = false) {
         })),
       },
     },
-    include: { questions: { orderBy: { position: 'asc' } } },
+    ...quizWithQuestions,
   });
 
   return quiz;
@@ -71,7 +85,7 @@ export async function createQuiz(file, questionCount, skipImages = false) {
 export async function getQuiz(id) {
   return prisma.quiz.findUnique({
     where: { id },
-    include: { questions: { orderBy: { position: 'asc' } } },
+    ...quizWithQuestions,
   });
 }
 
@@ -97,7 +111,7 @@ export async function retakeQuiz(quizId) {
 
   return prisma.quiz.findUnique({
     where: { id: quizId },
-    include: { questions: { orderBy: { position: 'asc' } } },
+    ...quizWithQuestions,
   });
 }
 
@@ -145,7 +159,7 @@ export async function submitQuizAnswers(quizId, answers) {
 
   return prisma.quiz.findUnique({
     where: { id: quizId },
-    include: { questions: { orderBy: { position: 'asc' } } },
+    ...quizWithQuestions,
   });
 }
 

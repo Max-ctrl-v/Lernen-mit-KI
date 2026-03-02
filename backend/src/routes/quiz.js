@@ -10,8 +10,8 @@ const router = Router();
 router.get(
   '/history',
   asyncHandler(async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 10), 100);
     const history = await quizService.getQuizHistory(page, limit);
     res.json(history);
   })
@@ -20,8 +20,8 @@ router.get(
 // POST /api/quiz — upload file + generate quiz (rate limited)
 router.post(
   '/',
-  upload.single('file'),
   quizRateLimit,
+  upload.single('file'),
   asyncHandler(async (req, res) => {
     const questionCount = parseInt(req.body.questionCount) || 10;
     if (questionCount < 5 || questionCount > 30) {
@@ -61,8 +61,8 @@ router.post(
   '/:id/submit',
   asyncHandler(async (req, res) => {
     const { answers } = req.body;
-    if (!Array.isArray(answers)) {
-      return res.status(400).json({ error: 'answers muss ein Array sein' });
+    if (!Array.isArray(answers) || answers.length > 100) {
+      return res.status(400).json({ error: 'answers muss ein Array mit max. 100 Einträgen sein' });
     }
     const result = await quizService.submitQuizAnswers(req.params.id, answers);
     res.json(result);

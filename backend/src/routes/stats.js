@@ -17,8 +17,8 @@ router.get(
 router.get(
   '/history',
   asyncHandler(async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 10), 100);
     const history = await statsService.getHistory(page, limit);
     res.json(history);
   })

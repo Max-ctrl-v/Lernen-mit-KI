@@ -1,11 +1,17 @@
 import multer from 'multer';
-import path from 'path';
 import { randomUUID } from 'crypto';
+
+const MIME_TO_EXT = {
+  'application/pdf': '.pdf',
+  'text/plain': '.txt',
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+};
 
 const storage = multer.diskStorage({
   destination: './uploads/',
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
+    const ext = MIME_TO_EXT[file.mimetype] || '.bin';
     cb(null, `${randomUUID()}${ext}`);
   },
 });
