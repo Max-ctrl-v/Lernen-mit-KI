@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   generateWortfluessigkeitSet,
 } from '../utils/wortfluessigkeitGenerator';
+import { saveExerciseResult } from '../utils/exerciseHistory';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -57,12 +58,14 @@ export default function WortfluessigkeitPage() {
 
   const handleNext = useCallback(() => {
     if (currentIdx + 1 >= questions.length) {
+      const finalScore = answers.filter((a) => a.isCorrect).length;
+      saveExerciseResult('wortfluessigkeit', difficulty, finalScore, questions.length);
       setPhase('results');
     } else {
       setCurrentIdx((i) => i + 1);
       setSelectedOption(null);
     }
-  }, [currentIdx, questions.length]);
+  }, [currentIdx, questions.length, answers, difficulty]);
 
   const handleRestart = useCallback(() => {
     setPhase('start');

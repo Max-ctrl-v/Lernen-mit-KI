@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { generateFigurenSet } from '../utils/figurenGenerator';
+import { saveExerciseResult } from '../utils/exerciseHistory';
 
 // ---------------------------------------------------------------------------
 // SVG rendering helpers
@@ -147,7 +148,10 @@ export default function FigurenPage() {
     }
   };
 
-  const handleFinish = () => setPhase('results');
+  const handleFinish = () => {
+    saveExerciseResult('figuren', difficulty, score, questions.length);
+    setPhase('results');
+  };
 
   const handleRestart = () => {
     setPhase('start');

@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { generateZahlenfolgenSet } from '../utils/zahlenfolgenGenerator';
+import { saveExerciseResult } from '../utils/exerciseHistory';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -544,8 +545,10 @@ export default function ZahlenfolgenPage() {
   const [phase, setPhase] = useState('START'); // START | QUIZ | RESULTS
   const [questions, setQuestions] = useState([]);
   const [userAnswers, setUserAnswers] = useState({});
+  const difficultyRef = useRef('MEDIUM');
 
   const handleStart = useCallback((difficulty, count) => {
+    difficultyRef.current = difficulty;
     const generated = generateZahlenfolgenSet(count, difficulty);
     setQuestions(generated);
     setUserAnswers({});
@@ -555,9 +558,15 @@ export default function ZahlenfolgenPage() {
 
   const handleFinish = useCallback((answers) => {
     setUserAnswers(answers);
+    // Save results to localStorage
+    let correct = 0;
+    questions.forEach((q, i) => {
+      if (answers[i] === q.correctOptionIndex) correct++;
+    });
+    saveExerciseResult('zahlenfolgen', difficultyRef.current, correct, questions.length);
     setPhase('RESULTS');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [questions]);
 
   const handleRestart = useCallback(() => {
     setPhase('START');
