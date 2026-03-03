@@ -90,6 +90,19 @@ export const UI = {
   progressFinalizing: 'Fast fertig...',
   noQuizzes: 'Noch keine Quizze abgeschlossen.',
 
+  // Exercise exam mode
+  exercisePractice: 'Übung',
+  exerciseExam: 'Prüfung',
+  exercisePracticeDesc: 'Kein Zeitdruck. Sofortiges Feedback nach jeder Frage.',
+  exerciseExamDesc: 'Wie im echten MedAT: Feste Fragenanzahl, Zeitlimit, Ergebnis am Ende.',
+  examAutoSubmit: 'Zeit abgelaufen! Deine Antworten wurden automatisch abgegeben.',
+  figurenExamInfo: '15 Fragen in 20 Minuten — wie im echten MedAT.',
+  zahlenfolgenExamInfo: '10 Fragen in 15 Minuten — wie im echten MedAT.',
+  wortfluessigkeitExamInfo: '15 Fragen in 20 Minuten — wie im echten MedAT.',
+  startExam: 'Prüfung starten',
+  startTraining: 'Training starten',
+  assembledSolutionLabel: 'So werden die Teile zusammengesetzt:',
+
   // Medication values
   yes: 'Ja',
   no: 'Nein',

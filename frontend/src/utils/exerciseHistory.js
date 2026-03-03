@@ -2,7 +2,7 @@
  * localStorage-based exercise history for client-side exercises
  * (Zahlenfolgen, Figuren, Wortflüssigkeit).
  *
- * Each entry: { id, type, difficulty, score, maxScore, date }
+ * Each entry: { id, type, difficulty, score, maxScore, mode, date }
  */
 
 const STORAGE_KEY = 'medat_exercise_history';
@@ -27,7 +27,7 @@ function writeAll(entries) {
  * @param {number} score
  * @param {number} maxScore
  */
-export function saveExerciseResult(type, difficulty, score, maxScore) {
+export function saveExerciseResult(type, difficulty, score, maxScore, mode = 'practice') {
   const entries = readAll();
   entries.unshift({
     id: `${type}-${Date.now()}`,
@@ -35,6 +35,7 @@ export function saveExerciseResult(type, difficulty, score, maxScore) {
     difficulty,
     score,
     maxScore,
+    mode,
     pct: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
     date: new Date().toISOString(),
   });

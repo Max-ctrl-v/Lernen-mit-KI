@@ -1,13 +1,15 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { generateFigurenSet } from '../utils/figurenGenerator';
 import { saveExerciseResult } from '../utils/exerciseHistory';
+import { useTimer } from '../hooks/useTimer';
+import Timer from '../components/Timer';
+import { UI } from '../utils/strings';
 
 // ---------------------------------------------------------------------------
 // SVG rendering helpers
 // ---------------------------------------------------------------------------
 
-/** Renders a single puzzle piece inside a transformed group. */
 function PieceSvg({ path, rotation, x, y, scale }) {
   return (
     <g transform={`translate(${x}, ${y}) scale(${scale}) rotate(${rotation}, 50, 50)`}>
@@ -22,7 +24,6 @@ function PieceSvg({ path, rotation, x, y, scale }) {
   );
 }
 
-/** Renders the scattered pieces area (the question display). */
 function PiecesDisplay({ pieces }) {
   return (
     <div className="flex items-center justify-center">
@@ -30,12 +31,7 @@ function PiecesDisplay({ pieces }) {
         className="rounded-2xl border-2 border-border bg-gray-50 overflow-hidden"
         style={{ width: '100%', maxWidth: 340, aspectRatio: '1' }}
       >
-        <svg
-          viewBox="0 0 300 300"
-          width="100%"
-          height="100%"
-          xmlns="http://www.w3.org/2000/svg"
-        >
+        <svg viewBox="0 0 300 300" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           {pieces.map((p, i) => (
             <PieceSvg key={i} {...p} />
           ))}
@@ -45,7 +41,6 @@ function PiecesDisplay({ pieces }) {
   );
 }
 
-/** Renders a complete shape thumbnail for an answer option. */
 function ShapeThumbnail({ path, viewBox, isNone, small }) {
   if (isNone) {
     return (
@@ -62,27 +57,49 @@ function ShapeThumbnail({ path, viewBox, isNone, small }) {
       className={small ? 'w-12 h-12' : 'w-full h-full'}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <path
-        d={path}
-        fill="#e0e7ef"
-        stroke="#475569"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-      />
+      <path d={path} fill="#e0e7ef" stroke="#475569" strokeWidth="2.5" strokeLinejoin="round" />
     </svg>
   );
 }
 
-/** Shows the correct assembled shape with labeled pieces. */
-function AssembledPreview({ correctShape }) {
+// ---------------------------------------------------------------------------
+// Assembled Solution — shows how pieces fit together with distinct colors
+// ---------------------------------------------------------------------------
+
+const PIECE_COLORS = [
+  { fill: '#bfdbfe', stroke: '#3b82f6' },
+  { fill: '#bbf7d0', stroke: '#22c55e' },
+  { fill: '#fecdd3', stroke: '#f43f5e' },
+  { fill: '#fed7aa', stroke: '#f97316' },
+  { fill: '#ddd6fe', stroke: '#8b5cf6' },
+  { fill: '#fef08a', stroke: '#eab308' },
+];
+
+function AssembledSolution({ pieces, correctShape, size = 200, label = true }) {
   return (
-    <div className="flex justify-center">
-      <div className="w-20 h-20 rounded-xl bg-brand-50 border border-brand-200 p-2 flex items-center justify-center">
-        <svg viewBox={correctShape.viewBox} className="w-full h-full">
+    <div className="flex flex-col items-center gap-2">
+      {label && (
+        <p className="text-xs font-medium text-gray-500">{UI.assembledSolutionLabel}</p>
+      )}
+      <div
+        className="rounded-2xl bg-white border-2 border-border p-3 flex items-center justify-center"
+        style={{ width: size, height: size }}
+      >
+        <svg viewBox={correctShape.viewBox || '0 0 100 100'} className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          {pieces.map((piece, i) => (
+            <path
+              key={i}
+              d={piece.path}
+              fill={PIECE_COLORS[i % PIECE_COLORS.length].fill}
+              stroke={PIECE_COLORS[i % PIECE_COLORS.length].stroke}
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+          ))}
           <path
             d={correctShape.path}
-            fill="#b5f5d6"
-            stroke="#099958"
+            fill="none"
+            stroke="#1e293b"
             strokeWidth="2.5"
             strokeLinejoin="round"
           />
@@ -93,7 +110,7 @@ function AssembledPreview({ correctShape }) {
 }
 
 // ---------------------------------------------------------------------------
-// Difficulty labels
+// Constants
 // ---------------------------------------------------------------------------
 
 const DIFFICULTIES = [
@@ -102,63 +119,73 @@ const DIFFICULTIES = [
   { key: 'VERY_HARD', label: 'Sehr schwer', desc: '5\u20136 Teile, sehr ähnliche Figuren' },
 ];
 
+const EXAM_CONFIG = { questions: 15, timeSeconds: 20 * 60, difficulty: 'HARD' };
+
 // ---------------------------------------------------------------------------
 // Main page component
 // ---------------------------------------------------------------------------
 
 export default function FigurenPage() {
-  const [phase, setPhase] = useState('start'); // start | play | results
+  const [phase, setPhase] = useState('start');
+  const [mode, setMode] = useState('practice');
   const [difficulty, setDifficulty] = useState('MEDIUM');
   const [questionCount, setQuestionCount] = useState(10);
   const [questions, setQuestions] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState({}); // { index: selectedOptionIdx }
+  const [answers, setAnswers] = useState({});
   const [showFeedback, setShowFeedback] = useState({});
+  const [timerExpired, setTimerExpired] = useState(false);
 
-  // Generate questions when training starts
+  const isExam = mode === 'exam';
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const diffRef = useRef(difficulty);
+  diffRef.current = difficulty;
+
+  // Timer for exam mode
+  const handleTimerExpire = useCallback(() => {
+    if (modeRef.current === 'exam') {
+      setTimerExpired(true);
+      setPhase('results');
+    }
+  }, []);
+
+  const { remaining } = useTimer(
+    EXAM_CONFIG.timeSeconds,
+    handleTimerExpire,
+    isExam && phase === 'play'
+  );
+
   const handleStart = useCallback(() => {
-    const qs = generateFigurenSet(questionCount, difficulty);
+    const count = isExam ? EXAM_CONFIG.questions : questionCount;
+    const diff = isExam ? EXAM_CONFIG.difficulty : difficulty;
+    const qs = generateFigurenSet(count, diff);
     setQuestions(qs);
     setCurrentIdx(0);
     setAnswers({});
     setShowFeedback({});
+    setTimerExpired(false);
     setPhase('play');
-  }, [questionCount, difficulty]);
+  }, [questionCount, difficulty, isExam]);
 
-  // Answer a question
   const handleAnswer = useCallback(
     (optionIdx) => {
-      if (answers[currentIdx] != null) return; // already answered
-      setAnswers((prev) => ({ ...prev, [currentIdx]: optionIdx }));
-      setShowFeedback((prev) => ({ ...prev, [currentIdx]: true }));
+      if (isExam) {
+        setAnswers((prev) => ({ ...prev, [currentIdx]: optionIdx }));
+      } else {
+        if (answers[currentIdx] != null) return;
+        setAnswers((prev) => ({ ...prev, [currentIdx]: optionIdx }));
+        setShowFeedback((prev) => ({ ...prev, [currentIdx]: true }));
+      }
     },
-    [currentIdx, answers]
+    [currentIdx, answers, isExam]
   );
 
-  // Navigation
   const goNext = () => {
-    if (currentIdx < questions.length - 1) {
-      setCurrentIdx(currentIdx + 1);
-    }
+    if (currentIdx < questions.length - 1) setCurrentIdx(currentIdx + 1);
   };
-
   const goPrev = () => {
-    if (currentIdx > 0) {
-      setCurrentIdx(currentIdx - 1);
-    }
-  };
-
-  const handleFinish = () => {
-    saveExerciseResult('figuren', difficulty, score, questions.length);
-    setPhase('results');
-  };
-
-  const handleRestart = () => {
-    setPhase('start');
-    setQuestions([]);
-    setCurrentIdx(0);
-    setAnswers({});
-    setShowFeedback({});
+    if (currentIdx > 0) setCurrentIdx(currentIdx - 1);
   };
 
   // Compute score
@@ -169,6 +196,21 @@ export default function FigurenPage() {
     });
     return correct;
   }, [questions, answers]);
+
+  const handleFinish = useCallback(() => {
+    const diff = isExam ? EXAM_CONFIG.difficulty : diffRef.current;
+    saveExerciseResult('figuren', diff, score, questions.length, mode);
+    setPhase('results');
+  }, [isExam, score, questions.length, mode]);
+
+  const handleRestart = () => {
+    setPhase('start');
+    setQuestions([]);
+    setCurrentIdx(0);
+    setAnswers({});
+    setShowFeedback({});
+    setTimerExpired(false);
+  };
 
   // ─── START SCREEN ───────────────────────────────────────────────────────
   if (phase === 'start') {
@@ -196,61 +238,109 @@ export default function FigurenPage() {
           </p>
         </div>
 
-        {/* Difficulty selector */}
-        <div className="animate-fade-up" style={{ animationDelay: '0.1s' }}>
-          <h2 className="font-display text-xl text-gray-800 tracking-heading mb-4">
-            Schwierigkeitsgrad
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {DIFFICULTIES.map((d) => (
-              <button
-                key={d.key}
-                onClick={() => setDifficulty(d.key)}
-                className={`text-left p-5 rounded-2xl border-2 transition-transform duration-200
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400
-                  active:scale-[0.98] ${
-                  difficulty === d.key
-                    ? 'border-brand-400 bg-brand-50/60 shadow-glow-brand'
-                    : 'border-border bg-white shadow-raised hover:border-brand-200 hover:shadow-elevated'
-                }`}
-              >
-                <h3 className={`font-display text-lg tracking-heading mb-1 ${
-                  difficulty === d.key ? 'text-brand-800' : 'text-gray-800'
-                }`}>
-                  {d.label}
-                </h3>
-                <p className="text-sm text-gray-500 leading-body">{d.desc}</p>
-              </button>
-            ))}
+        {/* Mode toggle */}
+        <div className="flex flex-col items-center gap-3 animate-fade-up" style={{ animationDelay: '0.05s' }}>
+          <div className="inline-flex rounded-xl border-2 border-border bg-gray-50 p-1">
+            <button
+              onClick={() => setMode('practice')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                !isExam ? 'bg-white text-brand-700 shadow-raised' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {UI.exercisePractice}
+            </button>
+            <button
+              onClick={() => setMode('exam')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                isExam ? 'bg-white text-brand-700 shadow-raised' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {UI.exerciseExam}
+            </button>
           </div>
+          <p className="text-xs text-gray-400 text-center max-w-sm">
+            {isExam ? UI.exerciseExamDesc : UI.exercisePracticeDesc}
+          </p>
         </div>
 
-        {/* Question count slider */}
-        <div className="surface-raised p-6 animate-fade-up" style={{ animationDelay: '0.15s' }}>
-          <label className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-600">Anzahl der Fragen</span>
-            <span className="text-sm font-bold text-brand-700 bg-brand-50 px-3 py-1 rounded-full">
-              {questionCount}
-            </span>
-          </label>
-          <input
-            type="range"
-            min={5}
-            max={15}
-            value={questionCount}
-            onChange={(e) => setQuestionCount(Number(e.target.value))}
-            className="w-full"
-          />
-          <div className="flex justify-between text-xs text-gray-400 mt-1.5">
-            <span>5</span>
-            <span>15</span>
+        {/* Exam info card */}
+        {isExam && (
+          <div className="surface-elevated p-5 animate-fade-up text-center" style={{ animationDelay: '0.1s' }}>
+            <div className="flex items-center justify-center gap-3 text-sm text-gray-600 mb-2">
+              <span className="flex items-center gap-1.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                <span className="font-semibold">20 Minuten</span>
+              </span>
+              <span className="text-gray-300">|</span>
+              <span className="font-semibold">15 Fragen</span>
+              <span className="text-gray-300">|</span>
+              <span className="font-semibold">Schwer</span>
+            </div>
+            <p className="text-xs text-gray-500">
+              Kein sofortiges Feedback. Ergebnis erst nach Abgabe oder Zeitablauf.
+            </p>
           </div>
-        </div>
+        )}
+
+        {/* Difficulty selector — practice only */}
+        {!isExam && (
+          <div className="animate-fade-up" style={{ animationDelay: '0.1s' }}>
+            <h2 className="font-display text-xl text-gray-800 tracking-heading mb-4">
+              Schwierigkeitsgrad
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {DIFFICULTIES.map((d) => (
+                <button
+                  key={d.key}
+                  onClick={() => setDifficulty(d.key)}
+                  className={`text-left p-5 rounded-2xl border-2 transition-transform duration-200
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400
+                    active:scale-[0.98] ${
+                    difficulty === d.key
+                      ? 'border-brand-400 bg-brand-50/60 shadow-glow-brand'
+                      : 'border-border bg-white shadow-raised hover:border-brand-200 hover:shadow-elevated'
+                  }`}
+                >
+                  <h3 className={`font-display text-lg tracking-heading mb-1 ${
+                    difficulty === d.key ? 'text-brand-800' : 'text-gray-800'
+                  }`}>
+                    {d.label}
+                  </h3>
+                  <p className="text-sm text-gray-500 leading-body">{d.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Question count slider — practice only */}
+        {!isExam && (
+          <div className="surface-raised p-6 animate-fade-up" style={{ animationDelay: '0.15s' }}>
+            <label className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-600">Anzahl der Fragen</span>
+              <span className="text-sm font-bold text-brand-700 bg-brand-50 px-3 py-1 rounded-full">
+                {questionCount}
+              </span>
+            </label>
+            <input
+              type="range"
+              min={5}
+              max={15}
+              value={questionCount}
+              onChange={(e) => setQuestionCount(Number(e.target.value))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-gray-400 mt-1.5">
+              <span>5</span>
+              <span>15</span>
+            </div>
+          </div>
+        )}
 
         {/* Start button */}
         <div className="flex flex-col items-center gap-4 animate-fade-up" style={{ animationDelay: '0.2s' }}>
           <button onClick={handleStart} className="btn-brand text-lg px-10 py-4">
-            Training starten
+            {isExam ? UI.startExam : UI.startTraining}
           </button>
           <Link
             to="/"
@@ -271,20 +361,24 @@ export default function FigurenPage() {
     if (!question) return null;
 
     const selectedIdx = answers[currentIdx] ?? null;
-    const hasFeedback = !!showFeedback[currentIdx];
+    const hasFeedback = !isExam && !!showFeedback[currentIdx];
     const isCorrect = hasFeedback && selectedIdx === question.correctOptionIndex;
     const answeredCount = Object.keys(answers).length;
 
     return (
       <div className="max-w-3xl mx-auto space-y-6 animate-fade-up">
-        {/* Header */}
+        {/* Header + Timer */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h2 className="font-display text-xl sm:text-2xl text-gray-900 tracking-heading">
             Frage {currentIdx + 1} von {questions.length}
           </h2>
-          <span className="text-sm font-semibold text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-200">
-            {answeredCount}/{questions.length}
-          </span>
+          {isExam ? (
+            <Timer remaining={remaining} total={EXAM_CONFIG.timeSeconds} />
+          ) : (
+            <span className="text-sm font-semibold text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-200">
+              {answeredCount}/{questions.length}
+            </span>
+          )}
         </div>
 
         {/* Question nav grid */}
@@ -292,7 +386,7 @@ export default function FigurenPage() {
           {questions.map((q, i) => {
             const isAnswered = answers[i] != null;
             const isCurrent = i === currentIdx;
-            const hasFb = !!showFeedback[i];
+            const hasFb = !isExam && !!showFeedback[i];
             const wasCorrect = hasFb && answers[i] === q.correctOptionIndex;
 
             let cls =
@@ -336,7 +430,14 @@ export default function FigurenPage() {
             let bgCls = 'bg-white hover:border-brand-300 hover:shadow-elevated';
             let ringCls = '';
 
-            if (hasFeedback) {
+            if (isExam) {
+              // Exam mode: only show selection, no correct/incorrect colors
+              if (isSelected) {
+                borderCls = 'border-brand-400';
+                bgCls = 'bg-brand-50';
+                ringCls = 'ring-2 ring-brand-300';
+              }
+            } else if (hasFeedback) {
               if (isCorrectOption) {
                 borderCls = 'border-emerald-400';
                 bgCls = 'bg-emerald-50';
@@ -365,7 +466,6 @@ export default function FigurenPage() {
                   ${borderCls} ${bgCls} ${ringCls}`}
                 style={{ minHeight: 90 }}
               >
-                {/* Label badge */}
                 <span className={`absolute top-1.5 left-1.5 w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold
                   ${hasFeedback && isCorrectOption
                     ? 'bg-emerald-500 text-white'
@@ -376,26 +476,18 @@ export default function FigurenPage() {
                 >
                   {opt.label}
                 </span>
-
-                {/* Shape */}
                 <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center mt-2">
-                  <ShapeThumbnail
-                    path={opt.path}
-                    viewBox={opt.viewBox}
-                    isNone={opt.isNone}
-                  />
+                  <ShapeThumbnail path={opt.path} viewBox={opt.viewBox} isNone={opt.isNone} />
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* Feedback */}
+        {/* Feedback — practice mode only */}
         {hasFeedback && (
           <div className={`p-4 rounded-xl border ${
-            isCorrect
-              ? 'border-emerald-300 bg-emerald-50'
-              : 'border-red-300 bg-red-50'
+            isCorrect ? 'border-emerald-300 bg-emerald-50' : 'border-red-300 bg-red-50'
           } animate-fade-up`}>
             <div className="flex items-start gap-3">
               <span className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
@@ -414,7 +506,7 @@ export default function FigurenPage() {
                 <p className="text-sm text-gray-600 font-body mt-1">{question.explanation}</p>
                 {!isCorrect && (
                   <div className="mt-3">
-                    <AssembledPreview correctShape={question.correctShape} />
+                    <AssembledSolution pieces={question.pieces} correctShape={question.correctShape} size={200} />
                   </div>
                 )}
               </div>
@@ -432,23 +524,50 @@ export default function FigurenPage() {
             &larr; Zurück
           </button>
 
-          {currentIdx < questions.length - 1 ? (
-            <button onClick={goNext} className="btn-brand px-4 sm:px-5 py-2.5 text-sm">
-              Weiter &rarr;
-            </button>
-          ) : (
-            <button
-              onClick={handleFinish}
-              className="px-5 sm:px-6 py-2.5 rounded-xl font-semibold text-white text-sm
-                bg-gradient-to-r from-accent-500 to-accent-600
-                shadow-[0_2px_8px_rgba(255,128,16,0.3),0_0_0_1px_rgba(255,128,16,0.2)]
-                hover:shadow-[0_4px_16px_rgba(255,128,16,0.4)]
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400
-                active:scale-95 transition-transform duration-200"
-            >
-              Auswertung
-            </button>
-          )}
+          <div className="flex gap-2">
+            {/* Exam: show submit button always */}
+            {isExam && (
+              <button
+                onClick={handleFinish}
+                className="px-5 sm:px-6 py-2.5 rounded-xl font-semibold text-white text-sm
+                  bg-gradient-to-r from-accent-500 to-accent-600
+                  shadow-[0_2px_8px_rgba(255,128,16,0.3),0_0_0_1px_rgba(255,128,16,0.2)]
+                  hover:shadow-[0_4px_16px_rgba(255,128,16,0.4)]
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400
+                  active:scale-95 transition-transform duration-200"
+              >
+                Auswertung ({answeredCount}/{questions.length})
+              </button>
+            )}
+
+            {/* Practice: next / finish */}
+            {!isExam && (
+              currentIdx < questions.length - 1 ? (
+                <button onClick={goNext} className="btn-brand px-4 sm:px-5 py-2.5 text-sm">
+                  Weiter &rarr;
+                </button>
+              ) : (
+                <button
+                  onClick={handleFinish}
+                  className="px-5 sm:px-6 py-2.5 rounded-xl font-semibold text-white text-sm
+                    bg-gradient-to-r from-accent-500 to-accent-600
+                    shadow-[0_2px_8px_rgba(255,128,16,0.3),0_0_0_1px_rgba(255,128,16,0.2)]
+                    hover:shadow-[0_4px_16px_rgba(255,128,16,0.4)]
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400
+                    active:scale-95 transition-transform duration-200"
+                >
+                  Auswertung
+                </button>
+              )
+            )}
+
+            {/* Exam: next button */}
+            {isExam && currentIdx < questions.length - 1 && (
+              <button onClick={goNext} className="btn-brand px-4 sm:px-5 py-2.5 text-sm">
+                Weiter &rarr;
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -461,6 +580,13 @@ export default function FigurenPage() {
 
     return (
       <div className="max-w-3xl mx-auto space-y-10">
+        {/* Timer expired banner */}
+        {timerExpired && (
+          <div className="p-4 rounded-xl border border-amber-300 bg-amber-50 text-center animate-fade-up">
+            <p className="text-sm font-semibold text-amber-800">{UI.examAutoSubmit}</p>
+          </div>
+        )}
+
         {/* Score ring */}
         <div className="text-center py-8 animate-fade-up">
           <ScoreRing score={score} maxScore={maxScore} pct={pct} />
@@ -468,7 +594,7 @@ export default function FigurenPage() {
             <GradeLabel pct={pct} />
           </div>
           <p className="mt-2 text-gray-500 font-body text-sm">
-            Figuren zusammensetzen &mdash; {DIFFICULTIES.find((d) => d.key === difficulty)?.label}
+            Figuren zusammensetzen &mdash; {isExam ? 'Prüfung' : DIFFICULTIES.find((d) => d.key === difficulty)?.label}
           </p>
         </div>
 
@@ -505,7 +631,6 @@ export default function FigurenPage() {
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">
-                      {/* Mini shape previews */}
                       <div className="flex items-center gap-3 mb-2">
                         <div className="flex items-center gap-1 text-xs text-gray-500 font-medium">
                           <span>Ziel:</span>
@@ -538,12 +663,14 @@ export default function FigurenPage() {
                         )}
                       </div>
 
-                      {/* Explanation for wrong/unanswered */}
                       {!wasCorrect && (
                         <div className="mt-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
                           <p className="text-xs text-amber-800 font-body leading-relaxed">
                             {q.explanation}
                           </p>
+                          <div className="mt-3 flex justify-center">
+                            <AssembledSolution pieces={q.pieces} correctShape={q.correctShape} size={160} label={false} />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -580,7 +707,7 @@ export default function FigurenPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Score ring (consistent with other pages)
+// Score ring
 // ---------------------------------------------------------------------------
 
 function ScoreRing({ score, maxScore, pct }) {

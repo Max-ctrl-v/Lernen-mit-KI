@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { generateZahlenfolgenSet } from '../utils/zahlenfolgenGenerator';
 import { saveExerciseResult } from '../utils/exerciseHistory';
+import { useTimer } from '../hooks/useTimer';
+import Timer from '../components/Timer';
+import { UI } from '../utils/strings';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -15,14 +18,16 @@ const DIFFICULTIES = [
 
 const MIN_QUESTIONS = 5;
 const MAX_QUESTIONS = 20;
+const EXAM_CONFIG = { questions: 10, timeSeconds: 15 * 60, difficulty: 'HARD' };
 
 // ---------------------------------------------------------------------------
 // Phase: START
 // ---------------------------------------------------------------------------
 
-function StartScreen({ onStart }) {
+function StartScreen({ onStart, mode, onModeChange }) {
   const [difficulty, setDifficulty] = useState('MEDIUM');
   const [count, setCount] = useState(10);
+  const isExam = mode === 'exam';
 
   return (
     <div className="max-w-3xl mx-auto space-y-10">
@@ -44,64 +49,118 @@ function StartScreen({ onStart }) {
         </p>
       </div>
 
-      {/* Difficulty selector */}
-      <div className="animate-fade-up" style={{ animationDelay: '0.1s' }}>
-        <h2 className="font-display text-xl text-gray-800 tracking-heading mb-4">
-          Schwierigkeit w&auml;hlen
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {DIFFICULTIES.map((d) => (
-            <button
-              key={d.key}
-              onClick={() => setDifficulty(d.key)}
-              className={`text-left p-5 rounded-2xl border-2 transition-transform duration-200 group
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400
-                active:scale-[0.98] ${
-                difficulty === d.key
-                  ? 'border-brand-400 bg-brand-50/60 shadow-glow-brand'
-                  : 'border-border bg-white shadow-raised hover:border-brand-200 hover:shadow-elevated'
-              }`}
-            >
-              <h3 className={`font-display text-lg tracking-heading mb-1 ${
-                difficulty === d.key ? 'text-brand-800' : 'text-gray-800'
-              }`}>
-                {d.label}
-              </h3>
-              <p className="text-sm text-gray-500 leading-body">{d.desc}</p>
-            </button>
-          ))}
+      {/* Mode toggle */}
+      <div className="flex flex-col items-center gap-3 animate-fade-up" style={{ animationDelay: '0.05s' }}>
+        <div className="inline-flex rounded-xl border-2 border-border bg-gray-50 p-1">
+          <button
+            onClick={() => onModeChange('practice')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+              !isExam ? 'bg-white text-brand-700 shadow-raised' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {UI.exercisePractice}
+          </button>
+          <button
+            onClick={() => onModeChange('exam')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+              isExam ? 'bg-white text-brand-700 shadow-raised' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {UI.exerciseExam}
+          </button>
         </div>
+        <p className="text-xs text-gray-400 text-center max-w-sm">
+          {isExam ? UI.exerciseExamDesc : UI.exercisePracticeDesc}
+        </p>
       </div>
 
-      {/* Question count slider */}
-      <div className="surface-raised p-6 animate-fade-up" style={{ animationDelay: '0.15s' }}>
-        <label className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-gray-600">Anzahl der Fragen</span>
-          <span className="text-sm font-bold text-brand-700 bg-brand-50 px-3 py-1 rounded-full">
-            {count} Fragen
-          </span>
-        </label>
-        <input
-          type="range"
-          min={MIN_QUESTIONS}
-          max={MAX_QUESTIONS}
-          value={count}
-          onChange={(e) => setCount(Number(e.target.value))}
-          className="w-full"
-        />
-        <div className="flex justify-between text-xs text-gray-400 mt-1.5">
-          <span>{MIN_QUESTIONS}</span>
-          <span>{MAX_QUESTIONS}</span>
+      {/* Exam info card */}
+      {isExam && (
+        <div className="surface-elevated p-5 animate-fade-up text-center" style={{ animationDelay: '0.1s' }}>
+          <div className="flex items-center justify-center gap-3 text-sm text-gray-600 mb-2">
+            <span className="flex items-center gap-1.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <span className="font-semibold">15 Minuten</span>
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className="font-semibold">10 Fragen</span>
+            <span className="text-gray-300">|</span>
+            <span className="font-semibold">Schwer</span>
+          </div>
+          <p className="text-xs text-gray-500">
+            Kein sofortiges Feedback. Ergebnis erst nach Abgabe oder Zeitablauf.
+          </p>
         </div>
-      </div>
+      )}
+
+      {/* Difficulty selector — practice only */}
+      {!isExam && (
+        <div className="animate-fade-up" style={{ animationDelay: '0.1s' }}>
+          <h2 className="font-display text-xl text-gray-800 tracking-heading mb-4">
+            Schwierigkeit w&auml;hlen
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {DIFFICULTIES.map((d) => (
+              <button
+                key={d.key}
+                onClick={() => setDifficulty(d.key)}
+                className={`text-left p-5 rounded-2xl border-2 transition-transform duration-200 group
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400
+                  active:scale-[0.98] ${
+                  difficulty === d.key
+                    ? 'border-brand-400 bg-brand-50/60 shadow-glow-brand'
+                    : 'border-border bg-white shadow-raised hover:border-brand-200 hover:shadow-elevated'
+                }`}
+              >
+                <h3 className={`font-display text-lg tracking-heading mb-1 ${
+                  difficulty === d.key ? 'text-brand-800' : 'text-gray-800'
+                }`}>
+                  {d.label}
+                </h3>
+                <p className="text-sm text-gray-500 leading-body">{d.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Question count slider — practice only */}
+      {!isExam && (
+        <div className="surface-raised p-6 animate-fade-up" style={{ animationDelay: '0.15s' }}>
+          <label className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-gray-600">Anzahl der Fragen</span>
+            <span className="text-sm font-bold text-brand-700 bg-brand-50 px-3 py-1 rounded-full">
+              {count} Fragen
+            </span>
+          </label>
+          <input
+            type="range"
+            min={MIN_QUESTIONS}
+            max={MAX_QUESTIONS}
+            value={count}
+            onChange={(e) => setCount(Number(e.target.value))}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-gray-400 mt-1.5">
+            <span>{MIN_QUESTIONS}</span>
+            <span>{MAX_QUESTIONS}</span>
+          </div>
+        </div>
+      )}
 
       {/* Start button */}
       <div className="flex flex-col items-center gap-4 animate-fade-up" style={{ animationDelay: '0.2s' }}>
         <button
-          onClick={() => onStart(difficulty, count)}
+          onClick={() => {
+            if (isExam) {
+              onStart(EXAM_CONFIG.difficulty, EXAM_CONFIG.questions, 'exam');
+            } else {
+              onStart(difficulty, count, 'practice');
+            }
+          }}
           className="btn-brand text-lg px-10 py-4"
         >
-          Training starten
+          {isExam ? UI.startExam : UI.startTraining}
         </button>
         <Link
           to="/"
@@ -120,42 +179,66 @@ function StartScreen({ onStart }) {
 // Phase: QUIZ
 // ---------------------------------------------------------------------------
 
-function QuizScreen({ questions, onFinish }) {
+function QuizScreen({ questions, onFinish, isExam }) {
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState({}); // { [idx]: selectedOptionIndex }
-  const [feedback, setFeedback] = useState({}); // { [idx]: true } — means feedback was shown
+  const [answers, setAnswers] = useState({});
+  const [feedback, setFeedback] = useState({});
+
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+
+  // Timer for exam mode
+  const handleTimerExpire = useCallback(() => {
+    onFinish(answersRef.current, true);
+  }, [onFinish]);
+
+  const { remaining } = useTimer(
+    EXAM_CONFIG.timeSeconds,
+    handleTimerExpire,
+    isExam
+  );
 
   const question = questions[currentIdx];
   const selectedForCurrent = answers[currentIdx] ?? null;
-  const showFeedback = !!feedback[currentIdx];
+  const showFeedback = !isExam && !!feedback[currentIdx];
 
   const handleAnswer = useCallback((optionIdx) => {
-    if (showFeedback) return;
-    setAnswers((prev) => ({ ...prev, [currentIdx]: optionIdx }));
-    setFeedback((prev) => ({ ...prev, [currentIdx]: true }));
-  }, [currentIdx, showFeedback]);
+    if (isExam) {
+      setAnswers((prev) => ({ ...prev, [currentIdx]: optionIdx }));
+    } else {
+      if (feedback[currentIdx]) return;
+      setAnswers((prev) => ({ ...prev, [currentIdx]: optionIdx }));
+      setFeedback((prev) => ({ ...prev, [currentIdx]: true }));
+    }
+  }, [currentIdx, feedback, isExam]);
 
   const goNext = () => {
     if (currentIdx < questions.length - 1) {
       setCurrentIdx(currentIdx + 1);
-    } else {
-      // Last question — finish
-      onFinish(answers);
     }
   };
 
+  const goPrev = () => {
+    if (currentIdx > 0) setCurrentIdx(currentIdx - 1);
+  };
+
   const isCorrect = selectedForCurrent === question.correctOptionIndex;
+  const answeredCount = Object.keys(answers).length;
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 sm:space-y-8 animate-fade-up">
-      {/* Header */}
+      {/* Header + Timer */}
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl sm:text-2xl text-gray-900 tracking-heading">
           Frage {currentIdx + 1} von {questions.length}
         </h2>
-        <span className="text-sm font-semibold text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-200">
-          {Object.keys(answers).length}/{questions.length}
-        </span>
+        {isExam ? (
+          <Timer remaining={remaining} total={EXAM_CONFIG.timeSeconds} />
+        ) : (
+          <span className="text-sm font-semibold text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-200">
+            {answeredCount}/{questions.length}
+          </span>
+        )}
       </div>
 
       {/* Navigation dots */}
@@ -163,17 +246,17 @@ function QuizScreen({ questions, onFinish }) {
         {questions.map((_, i) => {
           const isAnswered = answers[i] != null;
           const isCurrent = i === currentIdx;
-          const hasFeedback = feedback[i];
-          const wasCorrect = hasFeedback && answers[i] === questions[i].correctOptionIndex;
+          const hasFb = !isExam && feedback[i];
+          const wasCorrect = hasFb && answers[i] === questions[i].correctOptionIndex;
 
           let cls =
             'w-11 h-11 rounded-lg text-sm font-bold transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 active:scale-90';
 
           if (isCurrent) {
             cls += ' bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-glow-brand';
-          } else if (hasFeedback && wasCorrect) {
+          } else if (hasFb && wasCorrect) {
             cls += ' bg-emerald-100 text-emerald-700 border border-emerald-300';
-          } else if (hasFeedback && !wasCorrect) {
+          } else if (hasFb && !wasCorrect) {
             cls += ' bg-red-100 text-red-600 border border-red-300';
           } else if (isAnswered) {
             cls += ' bg-brand-100 text-brand-700 border border-brand-300';
@@ -208,7 +291,6 @@ function QuizScreen({ questions, onFinish }) {
               )}
             </div>
           ))}
-          {/* Question mark boxes for the two missing values */}
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-px h-6 bg-border-strong hidden sm:block" />
             <div className="min-w-[3rem] sm:min-w-[3.5rem] h-12 sm:h-14 rounded-xl border-2 border-dashed border-brand-400 bg-brand-50/40
@@ -238,7 +320,13 @@ function QuizScreen({ questions, onFinish }) {
           let cls =
             'w-full text-left px-3.5 sm:px-5 py-3 sm:py-3.5 rounded-xl border-2 font-body text-sm transition-transform duration-200 flex items-center gap-2.5 sm:gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400';
 
-          if (showFeedback) {
+          if (isExam) {
+            if (isSelected) {
+              cls += ' border-brand-400 bg-brand-50 shadow-glow-brand text-brand-800';
+            } else {
+              cls += ' border-border hover:border-brand-300 text-gray-700 cursor-pointer active:scale-[0.98]';
+            }
+          } else if (showFeedback) {
             if (isCorrectOption) {
               cls += ' border-emerald-500 bg-emerald-50 text-emerald-800';
             } else if (isSelected) {
@@ -288,7 +376,7 @@ function QuizScreen({ questions, onFinish }) {
         })}
       </div>
 
-      {/* Explanation panel */}
+      {/* Explanation panel — practice only */}
       {showFeedback && isCorrect && (
         <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 animate-fade-up">
           <div className="flex items-center gap-3">
@@ -328,17 +416,56 @@ function QuizScreen({ questions, onFinish }) {
         </div>
       )}
 
-      {/* Next button */}
-      {showFeedback && (
-        <div className="flex justify-end animate-fade-up">
-          <button onClick={goNext} className="btn-brand px-6 py-3">
-            {currentIdx < questions.length - 1 ? (
-              <>N&auml;chste Frage &rarr;</>
-            ) : (
-              'Ergebnis anzeigen'
-            )}
+      {/* Navigation */}
+      {isExam ? (
+        <div className="flex items-center justify-between gap-3">
+          <button
+            onClick={goPrev}
+            disabled={currentIdx === 0}
+            className="btn-secondary px-4 sm:px-5 py-2.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            &larr; Zurück
           </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onFinish(answers, false)}
+              className="px-5 sm:px-6 py-2.5 rounded-xl font-semibold text-white text-sm
+                bg-gradient-to-r from-accent-500 to-accent-600
+                shadow-[0_2px_8px_rgba(255,128,16,0.3),0_0_0_1px_rgba(255,128,16,0.2)]
+                hover:shadow-[0_4px_16px_rgba(255,128,16,0.4)]
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400
+                active:scale-95 transition-transform duration-200"
+            >
+              Auswertung ({answeredCount}/{questions.length})
+            </button>
+            {currentIdx < questions.length - 1 && (
+              <button onClick={goNext} className="btn-brand px-4 sm:px-5 py-2.5 text-sm">
+                Weiter &rarr;
+              </button>
+            )}
+          </div>
         </div>
+      ) : (
+        showFeedback && (
+          <div className="flex justify-end animate-fade-up">
+            <button
+              onClick={() => {
+                if (currentIdx < questions.length - 1) {
+                  goNext();
+                } else {
+                  onFinish(answers, false);
+                }
+              }}
+              className="btn-brand px-6 py-3"
+            >
+              {currentIdx < questions.length - 1 ? (
+                <>N&auml;chste Frage &rarr;</>
+              ) : (
+                'Ergebnis anzeigen'
+              )}
+            </button>
+          </div>
+        )
       )}
     </div>
   );
@@ -348,7 +475,7 @@ function QuizScreen({ questions, onFinish }) {
 // Phase: RESULTS
 // ---------------------------------------------------------------------------
 
-function ResultsScreen({ questions, answers, onRestart }) {
+function ResultsScreen({ questions, answers, onRestart, timerExpired, modeLabel }) {
   const score = useMemo(() => {
     let correct = 0;
     questions.forEach((q, i) => {
@@ -362,13 +489,20 @@ function ResultsScreen({ questions, answers, onRestart }) {
 
   return (
     <div className="max-w-3xl mx-auto space-y-10">
+      {/* Timer expired banner */}
+      {timerExpired && (
+        <div className="p-4 rounded-xl border border-amber-300 bg-amber-50 text-center animate-fade-up">
+          <p className="text-sm font-semibold text-amber-800">{UI.examAutoSubmit}</p>
+        </div>
+      )}
+
       {/* Score ring */}
       <div className="text-center py-8 animate-fade-up">
         <ScoreRing score={score} maxScore={maxScore} pct={pct} />
         <div className="mt-3">
           <GradeLabel pct={pct} />
         </div>
-        <p className="mt-2 text-gray-500 font-body text-sm">Zahlenfolgen-Training</p>
+        <p className="mt-2 text-gray-500 font-body text-sm">Zahlenfolgen &mdash; {modeLabel}</p>
       </div>
 
       {/* Question review */}
@@ -406,7 +540,6 @@ function ResultsScreen({ questions, answers, onRestart }) {
                     {i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    {/* Sequence display */}
                     <div className="flex flex-wrap items-center gap-1.5 mb-2">
                       {q.sequence.map((num, j) => (
                         <span key={j} className="inline-flex items-center justify-center min-w-[2rem] h-8 px-1.5 rounded-lg bg-gray-100 border border-border-subtle font-display text-sm text-gray-800 tracking-heading">
@@ -444,7 +577,6 @@ function ResultsScreen({ questions, answers, onRestart }) {
                       )}
                     </div>
 
-                    {/* Explanation */}
                     {!isCorrect && (
                       <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
                         <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">
@@ -468,10 +600,7 @@ function ResultsScreen({ questions, answers, onRestart }) {
         <button onClick={onRestart} className="btn-brand">
           Nochmal &uuml;ben
         </button>
-        <Link
-          to="/"
-          className="btn-secondary"
-        >
+        <Link to="/" className="btn-secondary">
           Zur&uuml;ck zum Start
         </Link>
       </div>
@@ -542,28 +671,33 @@ function GradeLabel({ pct }) {
 // ---------------------------------------------------------------------------
 
 export default function ZahlenfolgenPage() {
-  const [phase, setPhase] = useState('START'); // START | QUIZ | RESULTS
+  const [phase, setPhase] = useState('START');
+  const [mode, setMode] = useState('practice');
   const [questions, setQuestions] = useState([]);
   const [userAnswers, setUserAnswers] = useState({});
+  const [timerExpired, setTimerExpired] = useState(false);
   const difficultyRef = useRef('MEDIUM');
+  const modeRef = useRef('practice');
 
-  const handleStart = useCallback((difficulty, count) => {
+  const handleStart = useCallback((difficulty, count, selectedMode) => {
     difficultyRef.current = difficulty;
+    modeRef.current = selectedMode;
     const generated = generateZahlenfolgenSet(count, difficulty);
     setQuestions(generated);
     setUserAnswers({});
+    setTimerExpired(false);
     setPhase('QUIZ');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  const handleFinish = useCallback((answers) => {
+  const handleFinish = useCallback((answers, expired = false) => {
     setUserAnswers(answers);
-    // Save results to localStorage
+    setTimerExpired(expired);
     let correct = 0;
     questions.forEach((q, i) => {
       if (answers[i] === q.correctOptionIndex) correct++;
     });
-    saveExerciseResult('zahlenfolgen', difficultyRef.current, correct, questions.length);
+    saveExerciseResult('zahlenfolgen', difficultyRef.current, correct, questions.length, modeRef.current);
     setPhase('RESULTS');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [questions]);
@@ -572,16 +706,29 @@ export default function ZahlenfolgenPage() {
     setPhase('START');
     setQuestions([]);
     setUserAnswers({});
+    setTimerExpired(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  const modeLabel = modeRef.current === 'exam'
+    ? 'Prüfung'
+    : DIFFICULTIES.find((d) => d.key === difficultyRef.current)?.label || 'Mittel';
+
   if (phase === 'START') {
-    return <StartScreen onStart={handleStart} />;
+    return <StartScreen onStart={handleStart} mode={mode} onModeChange={setMode} />;
   }
 
   if (phase === 'QUIZ') {
-    return <QuizScreen questions={questions} onFinish={handleFinish} />;
+    return <QuizScreen questions={questions} onFinish={handleFinish} isExam={modeRef.current === 'exam'} />;
   }
 
-  return <ResultsScreen questions={questions} answers={userAnswers} onRestart={handleRestart} />;
+  return (
+    <ResultsScreen
+      questions={questions}
+      answers={userAnswers}
+      onRestart={handleRestart}
+      timerExpired={timerExpired}
+      modeLabel={modeLabel}
+    />
+  );
 }
