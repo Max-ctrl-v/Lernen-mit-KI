@@ -24,6 +24,7 @@ export const UI = {
   distractionMinutes: 'Ablenkungsdauer (Minuten)',
   distractionMsg: 'In der echten Prüfung würdest du jetzt andere Untertests bearbeiten.',
   numberSequences: 'Zahlenfolgen',
+  figureAssembly: 'Figuren',
   wordFluency: 'Wortflüssigkeit',
   confirmSubmit: 'Wirklich abgeben? Du kannst die Antworten danach nicht mehr ändern.',
   noHistory: 'Noch keine abgeschlossenen Sitzungen.',

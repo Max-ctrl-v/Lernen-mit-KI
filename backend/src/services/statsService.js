@@ -1,28 +1,37 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 export async function getSummary() {
-  const sessions = await prisma.session.findMany({
-    where: { phase: 'COMPLETED' },
-    select: { score: true, maxScore: true, createdAt: true },
-    orderBy: { createdAt: 'desc' },
-  });
+  // Use aggregate to compute stats at the DB level instead of loading all rows
+  const [agg, recentSix] = await Promise.all([
+    prisma.session.aggregate({
+      where: { phase: 'COMPLETED' },
+      _count: { _all: true },
+      _avg: { score: true },
+      _max: { score: true },
+    }),
+    // Only fetch the 6 most recent scores for trend calculation
+    prisma.session.findMany({
+      where: { phase: 'COMPLETED' },
+      select: { score: true },
+      orderBy: { createdAt: 'desc' },
+      take: 6,
+    }),
+  ]);
 
-  if (sessions.length === 0) {
+  const totalSessions = agg._count._all;
+  if (totalSessions === 0) {
     return { totalSessions: 0, averageScore: 0, bestScore: 0, trend: 'neutral' };
   }
 
-  const scores = sessions.map((s) => s.score ?? 0);
-  const totalSessions = sessions.length;
-  const averageScore = Math.round((scores.reduce((a, b) => a + b, 0) / totalSessions) * 10) / 10;
-  const bestScore = Math.max(...scores);
+  const averageScore = Math.round((agg._avg.score ?? 0) * 10) / 10;
+  const bestScore = agg._max.score ?? 0;
 
   // Trend: compare last 3 sessions average vs previous 3
   let trend = 'neutral';
-  if (totalSessions >= 6) {
-    const recent = scores.slice(0, 3).reduce((a, b) => a + b, 0) / 3;
-    const previous = scores.slice(3, 6).reduce((a, b) => a + b, 0) / 3;
+  if (recentSix.length >= 6) {
+    const scores = recentSix.map((s) => s.score ?? 0);
+    const recent = (scores[0] + scores[1] + scores[2]) / 3;
+    const previous = (scores[3] + scores[4] + scores[5]) / 3;
     trend = recent > previous ? 'improving' : recent < previous ? 'declining' : 'neutral';
   }
 
@@ -55,21 +64,26 @@ export async function getHistory(page = 1, limit = 10) {
 }
 
 export async function getFieldPerformance() {
-  const questions = await prisma.question.findMany({
+  // Use groupBy to aggregate at the DB level instead of loading every question
+  const groups = await prisma.question.groupBy({
+    by: ['fieldTested', 'isCorrect'],
     where: {
       session: { phase: 'COMPLETED' },
       isCorrect: { not: null },
     },
-    select: { fieldTested: true, isCorrect: true },
+    _count: { _all: true },
   });
 
+  // Combine the groupBy results into { field -> { total, correct } }
   const stats = {};
-  for (const q of questions) {
-    if (!stats[q.fieldTested]) {
-      stats[q.fieldTested] = { total: 0, correct: 0 };
+  for (const row of groups) {
+    if (!stats[row.fieldTested]) {
+      stats[row.fieldTested] = { total: 0, correct: 0 };
     }
-    stats[q.fieldTested].total++;
-    if (q.isCorrect) stats[q.fieldTested].correct++;
+    stats[row.fieldTested].total += row._count._all;
+    if (row.isCorrect) {
+      stats[row.fieldTested].correct += row._count._all;
+    }
   }
 
   return Object.entries(stats).map(([field, { total, correct }]) => ({

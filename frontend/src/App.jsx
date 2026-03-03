@@ -19,6 +19,9 @@ const QuizUploadPage = lazy(() => import('./pages/QuizUploadPage'));
 const QuizPlayPage = lazy(() => import('./pages/QuizPlayPage'));
 const QuizResultsPage = lazy(() => import('./pages/QuizResultsPage'));
 const QuizHistoryPage = lazy(() => import('./pages/QuizHistoryPage'));
+const ZahlenfolgenPage = lazy(() => import('./pages/ZahlenfolgenPage'));
+const FigurenPage = lazy(() => import('./pages/FigurenPage'));
+const WortfluessigkeitPage = lazy(() => import('./pages/WortfluessigkeitPage'));
 
 function PageLoader() {
   return <SkeletonPage />;
@@ -65,6 +68,9 @@ function AuthGate() {
               <Route path="/quiz/:id/play" element={<QuizPlayPage />} />
               <Route path="/quiz/:id/results" element={<QuizResultsPage />} />
               <Route path="/quiz/history" element={<QuizHistoryPage />} />
+              <Route path="/zahlenfolgen" element={<ZahlenfolgenPage />} />
+              <Route path="/figuren" element={<FigurenPage />} />
+              <Route path="/wortfluessigkeit" element={<WortfluessigkeitPage />} />
               <Route path="*" element={<StartPage />} />
             </Routes>
           </Suspense>

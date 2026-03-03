@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { parsePagination } from '../utils/pagination.js';
 import { upload } from '../middleware/upload.js';
 import { quizRateLimit } from '../middleware/quizRateLimit.js';
 import * as quizService from '../services/quizService.js';
@@ -10,8 +11,7 @@ const router = Router();
 router.get(
   '/history',
   asyncHandler(async (req, res) => {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 10), 100);
+    const { page, limit } = parsePagination(req.query);
     const history = await quizService.getQuizHistory(page, limit);
     res.json(history);
   })

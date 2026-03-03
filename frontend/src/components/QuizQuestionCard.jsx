@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { UI } from '../utils/strings';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
-export default function QuizQuestionCard({ question, selectedIndex, onAnswer, showFeedback }) {
-  const options = JSON.parse(question.options || '[]');
+export default memo(function QuizQuestionCard({ question, selectedIndex, onAnswer, showFeedback }) {
+  const options = useMemo(() => JSON.parse(question.options || '[]'), [question.options]);
   const correctIndex = question.correctIndex;
   const isAnswered = selectedIndex != null;
   const isCorrect = selectedIndex === correctIndex;
@@ -131,4 +131,4 @@ export default function QuizQuestionCard({ question, selectedIndex, onAnswer, sh
       )}
     </div>
   );
-}
+});

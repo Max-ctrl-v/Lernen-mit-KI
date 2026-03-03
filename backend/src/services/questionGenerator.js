@@ -37,7 +37,7 @@ function buildQuestionPlan(cards) {
 }
 
 function buildQuestionText(card, field, reverse, cards) {
-  const allergies = JSON.parse(card.allergies);
+  const allergies = card._parsedAllergies || JSON.parse(card.allergies);
 
   if (reverse) {
     return buildReverseQuestion(card, field, cards, allergies);
@@ -221,9 +221,10 @@ function generateDistractors(correctAnswer, field, cards, count, targetCard) {
           if (n !== correctAnswer) distractors.add(n);
         });
       } else {
-        // Add allergies from other cards and from the pool
+        // Add allergies from other cards and from the pool (use cached parse)
         cards.forEach((c) => {
-          JSON.parse(c.allergies).forEach((a) => {
+          const cardAllergies = c._parsedAllergies || JSON.parse(c.allergies);
+          cardAllergies.forEach((a) => {
             if (a !== correctAnswer) distractors.add(a);
           });
         });
@@ -261,6 +262,13 @@ function generateOptions(correctAnswer, field, cards, targetCard) {
 }
 
 export function generateQuestions(sessionId, cards) {
+  // Pre-parse allergies once per card to avoid repeated JSON.parse in hot loops
+  const allergyCache = new Map();
+  for (const c of cards) {
+    allergyCache.set(c.id, JSON.parse(c.allergies));
+    c._parsedAllergies = allergyCache.get(c.id);
+  }
+
   const plan = buildQuestionPlan(cards);
   const questions = [];
   const usedCombinations = new Set();
@@ -271,7 +279,6 @@ export function generateQuestions(sessionId, cards) {
     if (usedCombinations.has(comboKey)) continue;
     usedCombinations.add(comboKey);
 
-    const allergies = JSON.parse(card.allergies);
     const { questionText, correctAnswer } = buildQuestionText(card, field, reverse, cards);
     const { options, correctIndex } = generateOptions(correctAnswer, field, cards, card);
 

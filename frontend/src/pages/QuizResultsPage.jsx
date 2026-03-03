@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuiz } from '../context/QuizContext';
 import { UI } from '../utils/strings';
@@ -15,6 +15,12 @@ export default function QuizResultsPage() {
       loadQuiz(id).catch(() => navigate('/quiz'));
     }
   }, [id]);
+
+  // Memoize parsed options for all questions
+  const parsedQuestions = useMemo(
+    () => questions.map((q) => ({ ...q, parsedOptions: JSON.parse(q.options || '[]') })),
+    [questions]
+  );
 
   if (!quiz) {
     return (
@@ -76,8 +82,7 @@ export default function QuizResultsPage() {
           Fragenübersicht
         </h3>
         <div className="space-y-3">
-          {questions.map((q, i) => {
-            const options = JSON.parse(q.options || '[]');
+          {parsedQuestions.map((q, i) => {
             const isCorrect = q.isCorrect;
             const wasAnswered = q.selectedIndex != null;
 
@@ -112,6 +117,7 @@ export default function QuizResultsPage() {
                         <img
                           src={q.imageUrl}
                           alt="Illustration zur Frage"
+                          loading="lazy"
                           className="w-full max-h-40 object-contain bg-white"
                         />
                       </div>
@@ -124,7 +130,7 @@ export default function QuizResultsPage() {
                         <span>
                           Deine Antwort:{' '}
                           <strong className={isCorrect ? 'text-emerald-700' : 'text-red-600'}>
-                            {options[q.selectedIndex]}
+                            {q.parsedOptions[q.selectedIndex]}
                           </strong>
                         </span>
                       )}
@@ -135,7 +141,7 @@ export default function QuizResultsPage() {
                         <span>
                           Richtig:{' '}
                           <strong className="text-emerald-700">
-                            {options[q.correctIndex]}
+                            {q.parsedOptions[q.correctIndex]}
                           </strong>
                         </span>
                       )}

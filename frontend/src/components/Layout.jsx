@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { UI } from '../utils/strings';
@@ -9,12 +9,14 @@ export default function Layout({ children }) {
   const { logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const navLinks = [
+  const navLinks = useMemo(() => [
     ...(!isHome ? [{ to: '/', label: 'Start' }] : []),
     { to: '/quiz', label: UI.quizUpload },
-    { to: '/quiz/history', label: UI.quizHistory },
+    { to: '/zahlenfolgen', label: UI.numberSequences },
+    { to: '/figuren', label: UI.figureAssembly },
+    { to: '/wortfluessigkeit', label: UI.wordFluency },
     { to: '/history', label: UI.history },
-  ];
+  ], [isHome]);
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-base">
@@ -128,7 +130,7 @@ export default function Layout({ children }) {
         )}
       </header>
 
-      <main id="main-content" className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8" role="main">
+      <main id="main-content" className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {children}
       </main>
 

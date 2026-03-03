@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import api from '../services/api';
 
 const QuizContext = createContext();
@@ -127,15 +127,30 @@ export function QuizProvider({ children }) {
     setRateLimitMsg('');
   }, []);
 
+  // Cleanup progressTimer on unmount
+  useEffect(() => {
+    return () => {
+      if (progressTimer.current) {
+        clearTimeout(progressTimer.current);
+      }
+    };
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      quiz, questions, answers, loading, error, progressStep,
+      rateLimited, rateLimitMsg,
+      createQuiz, loadQuiz, retakeQuiz, answerQuestion, submitQuiz,
+      clearQuiz, clearRateLimit,
+    }),
+    [quiz, questions, answers, loading, error, progressStep,
+     rateLimited, rateLimitMsg,
+     createQuiz, loadQuiz, retakeQuiz, answerQuestion, submitQuiz,
+     clearQuiz, clearRateLimit]
+  );
+
   return (
-    <QuizContext.Provider
-      value={{
-        quiz, questions, answers, loading, error, progressStep,
-        rateLimited, rateLimitMsg,
-        createQuiz, loadQuiz, retakeQuiz, answerQuestion, submitQuiz,
-        clearQuiz, clearRateLimit,
-      }}
-    >
+    <QuizContext.Provider value={value}>
       {children}
     </QuizContext.Provider>
   );

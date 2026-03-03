@@ -9,7 +9,8 @@ const router = Router();
 router.get(
   '/:id/questions',
   asyncHandler(async (req, res) => {
-    const session = await sessionService.getSession(req.params.id);
+    // Use lightweight fetch — only need { id, phase }, not the full session with cards
+    const session = await sessionService.getSessionPhase(req.params.id);
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     if (![PHASES.RECALL, PHASES.COMPLETED].includes(session.phase)) {

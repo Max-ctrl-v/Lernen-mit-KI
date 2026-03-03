@@ -1,10 +1,28 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { UI, FIELD_LABELS } from '../utils/strings';
 
 export default function ResultsPage() {
   const { session, questions } = useSession();
+
+  // Memoize parsed options for all questions
+  const parsedQuestions = useMemo(
+    () => questions.map((q) => ({ ...q, parsedOptions: JSON.parse(q.options || '[]') })),
+    [questions]
+  );
+
+  // Memoize field breakdown
+  const fieldStats = useMemo(() => {
+    const stats = {};
+    for (const q of questions) {
+      const f = q.fieldTested;
+      if (!stats[f]) stats[f] = { total: 0, correct: 0 };
+      stats[f].total++;
+      if (q.isCorrect) stats[f].correct++;
+    }
+    return stats;
+  }, [questions]);
 
   if (!session) {
     return (
@@ -18,15 +36,6 @@ export default function ResultsPage() {
   const score = session.score ?? 0;
   const maxScore = session.maxScore ?? 25;
   const pct = Math.round((score / maxScore) * 100);
-
-  // Field breakdown
-  const fieldStats = {};
-  for (const q of questions) {
-    const f = q.fieldTested;
-    if (!fieldStats[f]) fieldStats[f] = { total: 0, correct: 0 };
-    fieldStats[f].total++;
-    if (q.isCorrect) fieldStats[f].correct++;
-  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-10">
@@ -83,8 +92,7 @@ export default function ResultsPage() {
       <div className="surface-elevated p-6 animate-fade-up" style={{ animationDelay: '0.25s' }}>
         <h3 className="font-display text-xl text-gray-800 tracking-heading mb-5">Fragenübersicht</h3>
         <div className="space-y-2.5">
-          {questions.map((q, i) => {
-            const options = JSON.parse(q.options || '[]');
+          {parsedQuestions.map((q, i) => {
             const isCorrect = q.isCorrect;
             const wasAnswered = q.selectedIndex != null;
 
@@ -112,7 +120,7 @@ export default function ResultsPage() {
                         <span>
                           Deine Antwort:{' '}
                           <strong className={isCorrect ? 'text-emerald-700' : 'text-red-600'}>
-                            {options[q.selectedIndex]}
+                            {q.parsedOptions[q.selectedIndex]}
                           </strong>
                         </span>
                       )}
@@ -120,7 +128,7 @@ export default function ResultsPage() {
                       {!isCorrect && (
                         <span>
                           Richtig:{' '}
-                          <strong className="text-emerald-700">{options[q.correctIndex]}</strong>
+                          <strong className="text-emerald-700">{q.parsedOptions[q.correctIndex]}</strong>
                         </span>
                       )}
                     </div>

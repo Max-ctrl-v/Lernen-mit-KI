@@ -1,16 +1,21 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { useMemo, memo } from 'react';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
-export default function ScoreChart({ sessions }) {
-  const data = [...sessions]
-    .reverse()
-    .map((s, i) => ({
-      nr: i + 1,
-      score: s.score ?? 0,
-      date: new Date(s.createdAt).toLocaleDateString('de-AT', {
-        day: '2-digit',
-        month: '2-digit',
-      }),
-    }));
+export default memo(function ScoreChart({ sessions }) {
+  const data = useMemo(
+    () =>
+      [...sessions]
+        .reverse()
+        .map((s, i) => ({
+          nr: i + 1,
+          score: s.score ?? 0,
+          date: new Date(s.createdAt).toLocaleDateString('de-AT', {
+            day: '2-digit',
+            month: '2-digit',
+          }),
+        })),
+    [sessions]
+  );
 
   return (
     <div className="surface-elevated p-6">
@@ -49,4 +54,4 @@ export default function ScoreChart({ sessions }) {
       </ResponsiveContainer>
     </div>
   );
-}
+});

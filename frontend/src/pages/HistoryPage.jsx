@@ -12,18 +12,26 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
     Promise.all([
-      api.get('/stats'),
-      api.get('/stats/history?limit=50'),
-      api.get('/stats/field-performance'),
+      api.get('/stats', { signal: controller.signal }),
+      api.get('/stats/history?limit=50', { signal: controller.signal }),
+      api.get('/stats/field-performance', { signal: controller.signal }),
     ])
       .then(([statsRes, histRes, fieldRes]) => {
-        setStats(statsRes.data);
-        setHistory(histRes.data.sessions || []);
-        setFieldPerf(fieldRes.data || []);
+        if (!controller.signal.aborted) {
+          setStats(statsRes.data);
+          setHistory(histRes.data.sessions || []);
+          setFieldPerf(fieldRes.data || []);
+        }
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!controller.signal.aborted) console.error(err);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, []);
 
   if (loading) {

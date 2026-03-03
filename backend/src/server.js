@@ -26,7 +26,13 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:8081',
   credentials: true,
 }));
-app.use(compression());
+// Skip compression for already-compressed image files served from /uploads
+app.use(compression({
+  filter: (req, res) => {
+    if (req.path.startsWith('/uploads')) return false;
+    return compression.filter(req, res);
+  },
+}));
 app.use(express.json({ limit: '100kb' }));
 
 // Public routes (no auth required)
@@ -39,8 +45,13 @@ app.use('/api/sessions', requireAuth, questionsRouter);
 app.use('/api/stats', requireAuth, statsRouter);
 app.use('/api/quiz', requireAuth, quizRouter);
 
-// Generated images (DALL-E) — UUID filenames, source files deleted after processing
-app.use('/uploads', express.static('uploads'));
+// Generated images (DALL-E) — UUID filenames are content-addressed, cache aggressively
+app.use('/uploads', express.static('uploads', {
+  maxAge: '365d',
+  immutable: true,
+  etag: true,
+  lastModified: false,
+}));
 
 // Error handler
 app.use(errorHandler);

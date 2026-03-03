@@ -24,7 +24,7 @@ export function useTimer(initialSeconds, onExpire, isActive = true) {
         clearInterval(interval);
         onExpireRef.current?.();
       }
-    }, 200);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [isRunning]);

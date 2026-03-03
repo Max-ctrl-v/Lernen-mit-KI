@@ -9,7 +9,7 @@ datasource db {
 
 model Session {
   id                  String    @id @default(cuid())
-  mode                String    // PRACTICE or EXAM
+  mode                String // PRACTICE or EXAM
   phase               String    @default("MEMORIZE") // MEMORIZE | DISTRACTION | RECALL | COMPLETED
   memorizeDuration    Int       @default(480)
   distractionDuration Int       @default(2400)
@@ -23,6 +23,9 @@ model Session {
 
   cards     Card[]
   questions Question[]
+
+  @@index([phase])
+  @@index([phase, createdAt])
 }
 
 model Card {
@@ -57,13 +60,15 @@ model Question {
   isCorrect     Boolean?
 
   @@unique([sessionId, position])
+  @@index([sessionId])
+  @@index([isCorrect])
 }
 
 model Quiz {
   id            String    @id @default(cuid())
   title         String
   sourceFile    String
-  sourceType    String    // pdf | txt | image
+  sourceType    String // pdf | txt | image
   extractedText String
   questionCount Int
   score         Int?
@@ -73,6 +78,9 @@ model Quiz {
   completedAt   DateTime?
 
   questions QuizQuestion[]
+
+  @@index([status])
+  @@index([status, createdAt])
 }
 
 model QuizQuestion {
@@ -81,10 +89,10 @@ model QuizQuestion {
   quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
   position      Int
   questionText  String
-  options       String   // JSON array of 4 options
-  correctIndex  Int      // 0-3
+  options       String // JSON array of 4 options
+  correctIndex  Int // 0-3
   explanation   String
-  imageUrl      String?  // DALL-E generated image
+  imageUrl      String? // DALL-E generated image
   selectedIndex Int?
   isCorrect     Boolean?
 

@@ -14,13 +14,17 @@ export default function StartPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const controller = new AbortController();
     Promise.all([
-      api.get('/stats').catch(() => ({ data: null })),
-      api.get('/stats/history?limit=5').catch(() => ({ data: { sessions: [] } })),
+      api.get('/stats', { signal: controller.signal }).catch(() => ({ data: null })),
+      api.get('/stats/history?limit=5', { signal: controller.signal }).catch(() => ({ data: { sessions: [] } })),
     ]).then(([statsRes, histRes]) => {
-      setStats(statsRes.data);
-      setRecentSessions(histRes.data.sessions || []);
+      if (!controller.signal.aborted) {
+        setStats(statsRes.data);
+        setRecentSessions(histRes.data.sessions || []);
+      }
     });
+    return () => controller.abort();
   }, []);
 
   const handleStart = async () => {
@@ -91,6 +95,69 @@ export default function StartPage() {
               {UI.quizUpload}
             </h3>
             <p className="text-xs text-gray-500 font-body mt-0.5 leading-body">Lernmaterial hochladen, Quiz erstellen lassen</p>
+          </div>
+        </Link>
+
+        {/* Zahlenfolgen */}
+        <Link
+          to="/zahlenfolgen"
+          className="surface-elevated p-5 rounded-2xl flex items-start gap-4 group
+            hover:shadow-elevated hover:border-brand-200 border-2 border-transparent
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400
+            active:scale-[0.98] transition-transform duration-200"
+        >
+          <div className="w-12 h-12 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-200 transition-colors">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-brand-600">
+              <path d="M4.745 3A23.933 23.933 0 0 0 3 12c0 3.183.62 6.22 1.745 9M19.255 3C20.38 5.78 21 8.817 21 12s-.62 6.22-1.745 9M9 6.75l3 5.25-3 5.25M15 6.75l-3 5.25 3 5.25" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-display text-lg text-gray-800 tracking-heading group-hover:text-brand-700 transition-colors">
+              {UI.numberSequences}
+            </h3>
+            <p className="text-xs text-gray-500 font-body mt-0.5 leading-body">Muster erkennen, nächste zwei Zahlen finden</p>
+          </div>
+        </Link>
+
+        {/* Figuren zusammensetzen */}
+        <Link
+          to="/figuren"
+          className="surface-elevated p-5 rounded-2xl flex items-start gap-4 group
+            hover:shadow-elevated hover:border-brand-200 border-2 border-transparent
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400
+            active:scale-[0.98] transition-transform duration-200"
+        >
+          <div className="w-12 h-12 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-200 transition-colors">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-brand-600">
+              <path d="M12 2L2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-display text-lg text-gray-800 tracking-heading group-hover:text-brand-700 transition-colors">
+              {UI.figureAssembly}
+            </h3>
+            <p className="text-xs text-gray-500 font-body mt-0.5 leading-body">Teile zusammensetzen, Figur erkennen</p>
+          </div>
+        </Link>
+
+        {/* Wortflüssigkeit */}
+        <Link
+          to="/wortfluessigkeit"
+          className="surface-elevated p-5 rounded-2xl flex items-start gap-4 group
+            hover:shadow-elevated hover:border-brand-200 border-2 border-transparent
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400
+            active:scale-[0.98] transition-transform duration-200"
+        >
+          <div className="w-12 h-12 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-200 transition-colors">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-brand-600">
+              <path d="M4 7V4h16v3M9 20h6M12 4v16" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-display text-lg text-gray-800 tracking-heading group-hover:text-brand-700 transition-colors">
+              {UI.wordFluency}
+            </h3>
+            <p className="text-xs text-gray-500 font-body mt-0.5 leading-body">Buchstaben ordnen, Wort erkennen</p>
           </div>
         </Link>
       </div>

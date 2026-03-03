@@ -1,6 +1,7 @@
+import { memo } from 'react';
 import { formatTime } from '../utils/strings';
 
-export default function Timer({ remaining, total }) {
+export default memo(function Timer({ remaining, total }) {
   const pct = total > 0 ? (remaining / total) * 100 : 100;
   const isLow = remaining <= 60;
   const isCritical = remaining <= 30;
@@ -40,4 +41,4 @@ export default function Timer({ remaining, total }) {
       </span>
     </div>
   );
-}
+});

@@ -17,13 +17,7 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (_req, file, cb) => {
-  const allowed = [
-    'application/pdf',
-    'text/plain',
-    'image/png',
-    'image/jpeg',
-  ];
-  if (allowed.includes(file.mimetype)) {
+  if (file.mimetype in MIME_TO_EXT) {
     cb(null, true);
   } else {
     cb(new Error('Nicht unterstützter Dateityp. Erlaubt: PDF, TXT, PNG, JPG'), false);

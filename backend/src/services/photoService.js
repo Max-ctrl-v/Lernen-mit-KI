@@ -1,7 +1,9 @@
 export async function fetchPhotos(count = 8) {
   try {
+    // 5-second timeout so session creation does not hang on a slow external API
     const response = await fetch(
-      `https://randomuser.me/api/?results=${count}&inc=picture&nat=de,fr,gb`
+      `https://randomuser.me/api/?results=${count}&inc=picture&nat=de,fr,gb`,
+      { signal: AbortSignal.timeout(5000) }
     );
     if (!response.ok) throw new Error('randomuser.me unavailable');
     const data = await response.json();

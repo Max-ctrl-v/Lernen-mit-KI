@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { useTimer } from '../hooks/useTimer';
@@ -18,12 +18,13 @@ export default function RecallPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showCards, setShowCards] = useState(false);
   const [practiceFeedback, setPracticeFeedback] = useState({});
+  const handleSubmitRef = useRef(null);
 
-  const handleExpire = useCallback(() => {
-    handleSubmit();
-  }, []);
-
-  const { remaining, elapsed } = useTimer(duration, handleExpire, isExam);
+  const { remaining, elapsed } = useTimer(
+    duration,
+    useCallback(() => { handleSubmitRef.current?.(); }, []),
+    isExam
+  );
 
   const handleSubmit = async () => {
     if (submitting) return;
@@ -37,6 +38,7 @@ export default function RecallPage() {
       setSubmitting(false);
     }
   };
+  handleSubmitRef.current = handleSubmit;
 
   const handleAnswer = (selectedIndex) => {
     const q = questions[currentIdx];

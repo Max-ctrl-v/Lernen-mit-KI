@@ -1,4 +1,6 @@
-export default function QuestionNav({ total, current, answers, questions, onSelect }) {
+import { memo } from 'react';
+
+export default memo(function QuestionNav({ total, current, answers, questions, onSelect }) {
   return (
     <div className="flex flex-wrap gap-2 justify-center">
       {Array.from({ length: total }, (_, i) => {
@@ -33,4 +35,4 @@ export default function QuestionNav({ total, current, answers, questions, onSele
       })}
     </div>
   );
-}
+});

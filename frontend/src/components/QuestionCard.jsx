@@ -1,10 +1,12 @@
-export default function QuestionCard({
+import { memo, useMemo } from 'react';
+
+export default memo(function QuestionCard({
   question,
   selectedIndex,
   onAnswer,
   showFeedback,
 }) {
-  const options = JSON.parse(question.options || '[]');
+  const options = useMemo(() => JSON.parse(question.options || '[]'), [question.options]);
   const correctIndex = question.correctIndex;
 
   return (
@@ -58,4 +60,4 @@ export default function QuestionCard({
       </div>
     </div>
   );
-}
+});

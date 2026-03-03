@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import api from '../services/api';
 
 const SessionContext = createContext();
@@ -59,20 +59,23 @@ export function SessionProvider({ children }) {
     setAnswers({});
   }, []);
 
+  const value = useMemo(
+    () => ({
+      session,
+      cards,
+      questions,
+      answers,
+      createSession,
+      advancePhase,
+      answerQuestion,
+      submitAll,
+      clearSession,
+    }),
+    [session, cards, questions, answers, createSession, advancePhase, answerQuestion, submitAll, clearSession]
+  );
+
   return (
-    <SessionContext.Provider
-      value={{
-        session,
-        cards,
-        questions,
-        answers,
-        createSession,
-        advancePhase,
-        answerQuestion,
-        submitAll,
-        clearSession,
-      }}
-    >
+    <SessionContext.Provider value={value}>
       {children}
     </SessionContext.Provider>
   );

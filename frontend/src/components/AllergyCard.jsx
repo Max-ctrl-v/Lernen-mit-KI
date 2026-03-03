@@ -1,7 +1,8 @@
+import { memo, useMemo } from 'react';
 import { UI, formatBirthday } from '../utils/strings';
 
-export default function AllergyCard({ card }) {
-  const allergies = JSON.parse(card.allergies || '[]');
+export default memo(function AllergyCard({ card }) {
+  const allergies = useMemo(() => JSON.parse(card.allergies || '[]'), [card.allergies]);
 
   return (
     <div
@@ -33,6 +34,8 @@ export default function AllergyCard({ card }) {
             <img
               src={card.photoUrl}
               alt={card.name}
+              width={112}
+              height={112}
               className="w-20 h-20 sm:w-28 sm:h-28 object-cover"
             />
             <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(107,79,16,0.15), transparent 40%)' }} />
@@ -60,7 +63,7 @@ export default function AllergyCard({ card }) {
       </div>
     </div>
   );
-}
+});
 
 function Field({ label, value, bold, highlight, mono, className = '' }) {
   return (

@@ -3,6 +3,14 @@ const hits = new Map(); // ip -> { count, resetAt }
 const MAX_QUIZZES = 5;
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
+// Periodically clean up expired entries to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of hits) {
+    if (now > entry.resetAt) hits.delete(ip);
+  }
+}, WINDOW_MS).unref();
+
 export function quizRateLimit(req, res, next) {
   // Only accept bypass code from POST body (never query params — those get logged)
   const bypassCode = req.body?.bypassCode;

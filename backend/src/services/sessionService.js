@@ -1,9 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import { PHASE_ORDER, PHASES, TIMERS } from '../config/constants.js';
 import { generateCards } from './cardGenerator.js';
 import { generateQuestions } from './questionGenerator.js';
-
-const prisma = new PrismaClient();
 
 export async function createSession(mode, distractionDuration) {
   const session = await prisma.session.create({
@@ -17,14 +15,20 @@ export async function createSession(mode, distractionDuration) {
   });
 
   const cardsData = await generateCards(session.id);
-  const cards = await prisma.$transaction(
-    cardsData.map((c) => prisma.card.create({ data: c }))
-  );
+
+  // Use createMany instead of N individual creates — 1 INSERT instead of 8
+  await prisma.card.createMany({ data: cardsData });
+
+  // Fetch the created cards (needed by questionGenerator for IDs)
+  const cards = await prisma.card.findMany({
+    where: { sessionId: session.id },
+    orderBy: { position: 'asc' },
+  });
 
   const questionsData = generateQuestions(session.id, cards);
-  await prisma.$transaction(
-    questionsData.map((q) => prisma.question.create({ data: q }))
-  );
+
+  // Use createMany instead of N individual creates — 1 INSERT instead of 25
+  await prisma.question.createMany({ data: questionsData });
 
   return prisma.session.findUnique({
     where: { id: session.id },
@@ -36,6 +40,14 @@ export async function getSession(id) {
   return prisma.session.findUnique({
     where: { id },
     include: { cards: { orderBy: { position: 'asc' } } },
+  });
+}
+
+// Lightweight fetch that only grabs phase — used by questions route
+export async function getSessionPhase(id) {
+  return prisma.session.findUnique({
+    where: { id },
+    select: { id: true, phase: true },
   });
 }
 
@@ -62,17 +74,29 @@ export async function advancePhase(id, newPhase, timeSpent) {
 }
 
 export async function getQuestions(sessionId, phase) {
-  const questions = await prisma.question.findMany({
+  // Use select to exclude sensitive fields at the DB level during RECALL
+  if (phase === PHASES.RECALL) {
+    return prisma.question.findMany({
+      where: { sessionId },
+      orderBy: { position: 'asc' },
+      select: {
+        id: true,
+        sessionId: true,
+        position: true,
+        questionText: true,
+        fieldTested: true,
+        targetCardId: true,
+        options: true,
+        selectedIndex: true,
+        // correctIndex and isCorrect intentionally excluded
+      },
+    });
+  }
+
+  return prisma.question.findMany({
     where: { sessionId },
     orderBy: { position: 'asc' },
   });
-
-  // Hide correct answers during RECALL in exam mode
-  if (phase === PHASES.RECALL) {
-    return questions.map(({ correctIndex, isCorrect, ...q }) => q);
-  }
-
-  return questions;
 }
 
 export async function submitAnswers(sessionId, answers, recallTimeSpent) {
@@ -86,34 +110,38 @@ export async function submitAnswers(sessionId, answers, recallTimeSpent) {
     throw Object.assign(new Error('Session is not in RECALL phase'), { status: 400 });
   }
 
+  // Build a lookup map instead of using .find() in a loop (O(n) -> O(1) per lookup)
+  const questionMap = new Map(session.questions.map((q) => [q.id, q]));
+
   let score = 0;
   const answeredIds = new Set();
+  const updates = [];
 
   for (const { questionId, selectedIndex } of answers) {
-    const question = session.questions.find((q) => q.id === questionId);
+    const question = questionMap.get(questionId);
     if (!question) continue;
 
     const isCorrect = selectedIndex === question.correctIndex;
     if (isCorrect) score++;
     answeredIds.add(questionId);
 
-    await prisma.question.update({
+    updates.push(prisma.question.update({
       where: { id: questionId },
       data: { selectedIndex, isCorrect },
-    });
+    }));
   }
 
   // Mark unanswered questions as incorrect
   for (const q of session.questions) {
     if (!answeredIds.has(q.id)) {
-      await prisma.question.update({
+      updates.push(prisma.question.update({
         where: { id: q.id },
         data: { selectedIndex: null, isCorrect: false },
-      });
+      }));
     }
   }
 
-  await prisma.session.update({
+  updates.push(prisma.session.update({
     where: { id: sessionId },
     data: {
       phase: PHASES.COMPLETED,
@@ -121,7 +149,9 @@ export async function submitAnswers(sessionId, answers, recallTimeSpent) {
       recallTimeSpent,
       completedAt: new Date(),
     },
-  });
+  }));
+
+  await prisma.$transaction(updates);
 
   return prisma.session.findUnique({
     where: { id: sessionId },

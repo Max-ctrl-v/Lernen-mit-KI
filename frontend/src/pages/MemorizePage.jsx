@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { useTimer } from '../hooks/useTimer';
@@ -11,14 +11,11 @@ export default function MemorizePage() {
   const navigate = useNavigate();
   const isExam = session?.mode === 'EXAM';
   const duration = session?.memorizeDuration || 480;
-
-  const handleExpire = useCallback(() => {
-    handleNext();
-  }, []);
+  const handleNextRef = useRef(null);
 
   const { remaining, elapsed } = useTimer(
     duration,
-    handleExpire,
+    useCallback(() => { handleNextRef.current?.(); }, []),
     isExam
   );
 
@@ -30,6 +27,7 @@ export default function MemorizePage() {
       console.error(err);
     }
   };
+  handleNextRef.current = handleNext;
 
   if (!session || cards.length === 0) {
     return (

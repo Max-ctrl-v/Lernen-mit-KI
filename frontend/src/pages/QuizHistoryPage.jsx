@@ -12,10 +12,16 @@ export default function QuizHistoryPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get('/quiz/history?limit=50')
-      .then((res) => setQuizzes(res.data.quizzes || []))
+    const controller = new AbortController();
+    api.get('/quiz/history?limit=50', { signal: controller.signal })
+      .then((res) => {
+        if (!controller.signal.aborted) setQuizzes(res.data.quizzes || []);
+      })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, []);
 
   const handleRetake = async (quizId) => {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { useTimer } from '../hooks/useTimer';
@@ -12,12 +12,13 @@ export default function DistractionPage() {
   const navigate = useNavigate();
   const duration = session?.distractionDuration || 2400;
   const [activeGame, setActiveGame] = useState(null);
+  const handleSkipRef = useRef(null);
 
-  const handleExpire = useCallback(() => {
-    handleSkip();
-  }, []);
-
-  const { remaining } = useTimer(duration, handleExpire, true);
+  const { remaining } = useTimer(
+    duration,
+    useCallback(() => { handleSkipRef.current?.(); }, []),
+    true
+  );
 
   const handleSkip = async () => {
     try {
@@ -27,6 +28,7 @@ export default function DistractionPage() {
       console.error(err);
     }
   };
+  handleSkipRef.current = handleSkip;
 
   if (!session) {
     return (

@@ -1,22 +1,16 @@
 import OpenAI from 'openai';
-import { createWriteStream, unlinkSync } from 'fs';
+import { writeFile, unlink } from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import https from 'https';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-function downloadImage(url, destPath) {
-  return new Promise((resolve, reject) => {
-    const file = createWriteStream(destPath);
-    https.get(url, (response) => {
-      response.pipe(file);
-      file.on('finish', () => { file.close(); resolve(); });
-    }).on('error', (err) => {
-      try { unlinkSync(destPath); } catch {}
-      reject(err);
-    });
-  });
+async function downloadImage(url, destPath) {
+  // Use fetch with a 30-second timeout instead of bare https.get (which has no timeout)
+  const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await writeFile(destPath, buffer);
 }
 
 export async function generateImage(imagePrompt) {
