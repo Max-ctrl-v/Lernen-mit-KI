@@ -27,9 +27,9 @@ function writeAll(entries) {
  * @param {number} score
  * @param {number} maxScore
  */
-export function saveExerciseResult(type, difficulty, score, maxScore, mode = 'practice') {
+export function saveExerciseResult(type, difficulty, score, maxScore, mode = 'practice', { partial = false } = {}) {
   const entries = readAll();
-  entries.unshift({
+  const entry = {
     id: `${type}-${Date.now()}`,
     type,
     difficulty,
@@ -38,7 +38,9 @@ export function saveExerciseResult(type, difficulty, score, maxScore, mode = 'pr
     mode,
     pct: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
     date: new Date().toISOString(),
-  });
+  };
+  if (partial) entry.partial = true;
+  entries.unshift(entry);
   writeAll(entries);
 }
 
@@ -97,6 +99,60 @@ export function getExerciseStats() {
     improvement,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Active session persistence (resume after browser close)
+// ---------------------------------------------------------------------------
+
+const SESSION_PREFIX = 'medat_session_';
+
+/**
+ * Save the active session state so it can be restored after a page reload.
+ * @param {'zahlenfolgen'|'figuren'|'wortfluessigkeit'} type
+ * @param {Object} state - full session state to persist
+ */
+export function saveSessionState(type, state) {
+  try {
+    localStorage.setItem(SESSION_PREFIX + type, JSON.stringify({
+      ...state,
+      savedAt: Date.now(),
+    }));
+  } catch { /* quota exceeded — ignore */ }
+}
+
+/**
+ * Restore a previously saved session state.
+ * Returns null if no session exists or it's older than 24 hours.
+ * @param {'zahlenfolgen'|'figuren'|'wortfluessigkeit'} type
+ * @returns {Object|null}
+ */
+export function getSessionState(type) {
+  try {
+    const raw = localStorage.getItem(SESSION_PREFIX + type);
+    if (!raw) return null;
+    const state = JSON.parse(raw);
+    // Expire sessions older than 24 hours
+    if (Date.now() - state.savedAt > 24 * 60 * 60 * 1000) {
+      clearSessionState(type);
+      return null;
+    }
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Remove the saved session state (called on completion or explicit discard).
+ * @param {'zahlenfolgen'|'figuren'|'wortfluessigkeit'} type
+ */
+export function clearSessionState(type) {
+  localStorage.removeItem(SESSION_PREFIX + type);
+}
+
+// ---------------------------------------------------------------------------
+// Display labels
+// ---------------------------------------------------------------------------
 
 /** Type labels for display */
 export const EXERCISE_LABELS = {

@@ -522,7 +522,7 @@ function generateScatterLayout(pieceCount) {
     positions.push({
       x: baseX + randomBetween(0, Math.floor(cellW * 0.12)),
       y: baseY + randomBetween(0, Math.floor(cellH * 0.12)),
-      scale: pieceCount <= 3 ? 0.78 : pieceCount <= 4 ? 0.72 : 0.6,
+      scale: pieceCount <= 3 ? 0.95 : pieceCount <= 4 ? 0.85 : 0.72,
       rotation: pickRandom([0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 240, 270, 300, 330]),
     });
   }

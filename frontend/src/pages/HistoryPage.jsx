@@ -403,7 +403,7 @@ function ExerciseHistoryTable({ entries }) {
         </thead>
         <tbody>
           {entries.map((entry) => (
-            <tr key={entry.id} className="border-b border-border-subtle last:border-0 hover:bg-brand-50/30 transition-colors duration-150">
+            <tr key={entry.id} className={`border-b border-border-subtle last:border-0 hover:bg-brand-50/30 transition-colors duration-150 ${entry.partial ? 'opacity-70' : ''}`}>
               <td className="px-5 py-3.5 text-gray-600">
                 {new Date(entry.date).toLocaleDateString('de-AT', {
                   day: '2-digit', month: '2-digit', year: 'numeric',
@@ -411,7 +411,14 @@ function ExerciseHistoryTable({ entries }) {
                 })}
               </td>
               <td className="px-5 py-3.5">
-                <ExerciseTypeBadge type={entry.type} />
+                <div className="flex items-center gap-1.5">
+                  <ExerciseTypeBadge type={entry.type} />
+                  {entry.partial && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200">
+                      Abgebrochen
+                    </span>
+                  )}
+                </div>
               </td>
               <td className="px-5 py-3.5 text-gray-600 text-xs">
                 {DIFFICULTY_LABELS[entry.difficulty] || entry.difficulty}

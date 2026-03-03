@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { generateZahlenfolgenSet } from '../utils/zahlenfolgenGenerator';
-import { saveExerciseResult } from '../utils/exerciseHistory';
+import { saveExerciseResult, saveSessionState, getSessionState, clearSessionState } from '../utils/exerciseHistory';
 import { useTimer } from '../hooks/useTimer';
 import Timer from '../components/Timer';
 import { UI } from '../utils/strings';
@@ -179,10 +179,11 @@ function StartScreen({ onStart, mode, onModeChange }) {
 // Phase: QUIZ
 // ---------------------------------------------------------------------------
 
-function QuizScreen({ questions, onFinish, isExam }) {
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [feedback, setFeedback] = useState({});
+function QuizScreen({ questions, onFinish, isExam, onCancel, initialState, difficulty, mode }) {
+  const [currentIdx, setCurrentIdx] = useState(initialState?.currentIdx ?? 0);
+  const [answers, setAnswers] = useState(initialState?.answers ?? {});
+  const [feedback, setFeedback] = useState(initialState?.feedback ?? {});
+  const [timerInit] = useState(initialState?.remaining ?? EXAM_CONFIG.timeSeconds);
 
   const answersRef = useRef(answers);
   answersRef.current = answers;
@@ -193,10 +194,19 @@ function QuizScreen({ questions, onFinish, isExam }) {
   }, [onFinish]);
 
   const { remaining } = useTimer(
-    EXAM_CONFIG.timeSeconds,
+    timerInit,
     handleTimerExpire,
     isExam
   );
+
+  // Persist session during quiz (remaining captured via closure, not as dep to avoid per-second writes)
+  useEffect(() => {
+    if (questions.length === 0) return;
+    saveSessionState('zahlenfolgen', {
+      phase: 'QUIZ', questions, currentIdx, answers, feedback,
+      difficulty, mode, remaining: isExam ? remaining : null,
+    });
+  }, [questions, currentIdx, answers, feedback, difficulty, mode, isExam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const question = questions[currentIdx];
   const selectedForCurrent = answers[currentIdx] ?? null;
@@ -467,6 +477,13 @@ function QuizScreen({ questions, onFinish, isExam }) {
           </div>
         )
       )}
+
+      {/* Cancel link */}
+      <div className="text-center pt-2">
+        <button onClick={() => onCancel(answers)} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+          Abbrechen
+        </button>
+      </div>
     </div>
   );
 }
@@ -671,13 +688,25 @@ function GradeLabel({ pct }) {
 // ---------------------------------------------------------------------------
 
 export default function ZahlenfolgenPage() {
-  const [phase, setPhase] = useState('START');
-  const [mode, setMode] = useState('practice');
-  const [questions, setQuestions] = useState([]);
+  // Restore saved session (lazy initializer — runs once)
+  const [restored] = useState(() => {
+    const s = getSessionState('zahlenfolgen');
+    if (s?.phase !== 'QUIZ') return null;
+    // Adjust remaining for time elapsed since last save
+    if (s.remaining != null && s.savedAt) {
+      s.remaining = Math.max(0, s.remaining - Math.floor((Date.now() - s.savedAt) / 1000));
+      if (s.remaining <= 0) return null; // exam expired while away
+    }
+    return s;
+  });
+
+  const [phase, setPhase] = useState(restored ? 'QUIZ' : 'START');
+  const [mode, setMode] = useState(restored?.mode || 'practice');
+  const [questions, setQuestions] = useState(restored?.questions || []);
   const [userAnswers, setUserAnswers] = useState({});
   const [timerExpired, setTimerExpired] = useState(false);
-  const difficultyRef = useRef('MEDIUM');
-  const modeRef = useRef('practice');
+  const difficultyRef = useRef(restored?.difficulty || 'MEDIUM');
+  const modeRef = useRef(restored?.mode || 'practice');
 
   const handleStart = useCallback((difficulty, count, selectedMode) => {
     difficultyRef.current = difficulty;
@@ -698,17 +727,33 @@ export default function ZahlenfolgenPage() {
       if (answers[i] === q.correctOptionIndex) correct++;
     });
     saveExerciseResult('zahlenfolgen', difficultyRef.current, correct, questions.length, modeRef.current);
+    clearSessionState('zahlenfolgen');
     setPhase('RESULTS');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [questions]);
 
   const handleRestart = useCallback(() => {
+    clearSessionState('zahlenfolgen');
     setPhase('START');
     setQuestions([]);
     setUserAnswers({});
     setTimerExpired(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  const handleCancel = useCallback((quizAnswers) => {
+    let correct = 0;
+    questions.forEach((q, i) => {
+      if (quizAnswers[i] === q.correctOptionIndex) correct++;
+    });
+    saveExerciseResult('zahlenfolgen', difficultyRef.current, correct, questions.length, modeRef.current, { partial: true });
+    clearSessionState('zahlenfolgen');
+    setPhase('START');
+    setQuestions([]);
+    setUserAnswers({});
+    setTimerExpired(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [questions]);
 
   const modeLabel = modeRef.current === 'exam'
     ? 'Prüfung'
@@ -719,7 +764,17 @@ export default function ZahlenfolgenPage() {
   }
 
   if (phase === 'QUIZ') {
-    return <QuizScreen questions={questions} onFinish={handleFinish} isExam={modeRef.current === 'exam'} />;
+    return (
+      <QuizScreen
+        questions={questions}
+        onFinish={handleFinish}
+        isExam={modeRef.current === 'exam'}
+        onCancel={handleCancel}
+        initialState={restored ? { currentIdx: restored.currentIdx, answers: restored.answers, feedback: restored.feedback, remaining: restored.remaining } : null}
+        difficulty={difficultyRef.current}
+        mode={modeRef.current}
+      />
+    );
   }
 
   return (

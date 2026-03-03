@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { generateFigurenSet } from '../utils/figurenGenerator';
-import { saveExerciseResult } from '../utils/exerciseHistory';
+import { saveExerciseResult, saveSessionState, getSessionState, clearSessionState } from '../utils/exerciseHistory';
 import { useTimer } from '../hooks/useTimer';
 import Timer from '../components/Timer';
 import { UI } from '../utils/strings';
@@ -29,7 +29,7 @@ function PiecesDisplay({ pieces }) {
     <div className="flex items-center justify-center">
       <div
         className="rounded-2xl border-2 border-border bg-gray-50 overflow-hidden"
-        style={{ width: '100%', maxWidth: 340, aspectRatio: '1' }}
+        style={{ width: '100%', maxWidth: 420, aspectRatio: '1' }}
       >
         <svg viewBox="0 0 300 300" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           {pieces.map((p, i) => (
@@ -126,35 +126,69 @@ const EXAM_CONFIG = { questions: 15, timeSeconds: 20 * 60, difficulty: 'HARD' };
 // ---------------------------------------------------------------------------
 
 export default function FigurenPage() {
-  const [phase, setPhase] = useState('start');
-  const [mode, setMode] = useState('practice');
-  const [difficulty, setDifficulty] = useState('MEDIUM');
-  const [questionCount, setQuestionCount] = useState(10);
-  const [questions, setQuestions] = useState([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [showFeedback, setShowFeedback] = useState({});
+  // Restore saved session (lazy initializer — runs once)
+  const [restored] = useState(() => {
+    const s = getSessionState('figuren');
+    if (s?.phase !== 'play') return null;
+    // Adjust remaining for time elapsed since last save
+    if (s.remaining != null && s.savedAt) {
+      s.remaining = Math.max(0, s.remaining - Math.floor((Date.now() - s.savedAt) / 1000));
+      if (s.remaining <= 0) return null; // exam expired while away
+    }
+    return s;
+  });
+
+  const [phase, setPhase] = useState(restored ? 'play' : 'start');
+  const [mode, setMode] = useState(restored?.mode || 'practice');
+  const [difficulty, setDifficulty] = useState(restored?.difficulty || 'MEDIUM');
+  const [questionCount, setQuestionCount] = useState(restored?.questionCount || 10);
+  const [questions, setQuestions] = useState(restored?.questions || []);
+  const [currentIdx, setCurrentIdx] = useState(restored?.currentIdx || 0);
+  const [answers, setAnswers] = useState(restored?.answers || {});
+  const [showFeedback, setShowFeedback] = useState(restored?.showFeedback || {});
   const [timerExpired, setTimerExpired] = useState(false);
+  const [timerInit, setTimerInit] = useState(restored?.remaining ?? EXAM_CONFIG.timeSeconds);
 
   const isExam = mode === 'exam';
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const diffRef = useRef(difficulty);
   diffRef.current = difficulty;
+  const questionsRef = useRef(questions);
+  questionsRef.current = questions;
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
 
   // Timer for exam mode
   const handleTimerExpire = useCallback(() => {
     if (modeRef.current === 'exam') {
+      const qs = questionsRef.current;
+      const ans = answersRef.current;
+      let correct = 0;
+      qs.forEach((q, i) => { if (ans[i] === q.correctOptionIndex) correct++; });
+      saveExerciseResult('figuren', EXAM_CONFIG.difficulty, correct, qs.length, 'exam');
+      clearSessionState('figuren');
       setTimerExpired(true);
       setPhase('results');
     }
   }, []);
 
   const { remaining } = useTimer(
-    EXAM_CONFIG.timeSeconds,
+    timerInit,
     handleTimerExpire,
     isExam && phase === 'play'
   );
+
+  // Persist session during play (remaining captured via closure, not as dep to avoid per-second writes)
+  useEffect(() => {
+    if (phase === 'play' && questions.length > 0) {
+      saveSessionState('figuren', {
+        phase, mode, difficulty, questionCount,
+        questions, currentIdx, answers, showFeedback,
+        remaining: isExam ? remaining : null,
+      });
+    }
+  }, [phase, questions, currentIdx, answers, showFeedback, mode, difficulty, questionCount, isExam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = useCallback(() => {
     const count = isExam ? EXAM_CONFIG.questions : questionCount;
@@ -165,6 +199,7 @@ export default function FigurenPage() {
     setAnswers({});
     setShowFeedback({});
     setTimerExpired(false);
+    setTimerInit(EXAM_CONFIG.timeSeconds);
     setPhase('play');
   }, [questionCount, difficulty, isExam]);
 
@@ -200,10 +235,12 @@ export default function FigurenPage() {
   const handleFinish = useCallback(() => {
     const diff = isExam ? EXAM_CONFIG.difficulty : diffRef.current;
     saveExerciseResult('figuren', diff, score, questions.length, mode);
+    clearSessionState('figuren');
     setPhase('results');
   }, [isExam, score, questions.length, mode]);
 
   const handleRestart = () => {
+    clearSessionState('figuren');
     setPhase('start');
     setQuestions([]);
     setCurrentIdx(0);
@@ -211,6 +248,21 @@ export default function FigurenPage() {
     setShowFeedback({});
     setTimerExpired(false);
   };
+
+  // Cancel / abandon mid-exercise — saves partial result to history
+  const handleCancel = useCallback(() => {
+    const diff = isExam ? EXAM_CONFIG.difficulty : diffRef.current;
+    const currentScore = questions.reduce((acc, q, i) =>
+      acc + (answers[i] === q.correctOptionIndex ? 1 : 0), 0);
+    saveExerciseResult('figuren', diff, currentScore, questions.length, mode, { partial: true });
+    clearSessionState('figuren');
+    setPhase('start');
+    setQuestions([]);
+    setCurrentIdx(0);
+    setAnswers({});
+    setShowFeedback({});
+    setTimerExpired(false);
+  }, [isExam, questions, answers, mode]);
 
   // ─── START SCREEN ───────────────────────────────────────────────────────
   if (phase === 'start') {
@@ -504,11 +556,9 @@ export default function FigurenPage() {
                   {isCorrect ? 'Richtig!' : 'Leider falsch.'}
                 </p>
                 <p className="text-sm text-gray-600 font-body mt-1">{question.explanation}</p>
-                {!isCorrect && (
-                  <div className="mt-3">
-                    <AssembledSolution pieces={question.pieces} correctShape={question.correctShape} size={200} />
-                  </div>
-                )}
+                <div className="mt-3">
+                  <AssembledSolution pieces={question.pieces} correctShape={question.correctShape} size={200} />
+                </div>
               </div>
             </div>
           </div>
@@ -568,6 +618,13 @@ export default function FigurenPage() {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Cancel link */}
+        <div className="text-center pt-2">
+          <button onClick={handleCancel} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+            Abbrechen
+          </button>
         </div>
       </div>
     );
@@ -663,16 +720,16 @@ export default function FigurenPage() {
                         )}
                       </div>
 
-                      {!wasCorrect && (
-                        <div className="mt-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+                      <div className={`mt-2 p-2.5 rounded-lg border ${wasCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                        {!wasCorrect && (
                           <p className="text-xs text-amber-800 font-body leading-relaxed">
                             {q.explanation}
                           </p>
-                          <div className="mt-3 flex justify-center">
-                            <AssembledSolution pieces={q.pieces} correctShape={q.correctShape} size={160} label={false} />
-                          </div>
+                        )}
+                        <div className={`${!wasCorrect ? 'mt-3' : ''} flex justify-center`}>
+                          <AssembledSolution pieces={q.pieces} correctShape={q.correctShape} size={160} label={false} />
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>

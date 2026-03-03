@@ -9,6 +9,17 @@ export function useTimer(initialSeconds, onExpire, isActive = true) {
 
   onExpireRef.current = onExpire;
 
+  // Sync isActive prop to internal state
+  useEffect(() => {
+    setIsRunning(isActive);
+  }, [isActive]);
+
+  // Reset when initialSeconds changes (new session or restored session)
+  useEffect(() => {
+    setRemaining(initialSeconds);
+    initialRef.current = initialSeconds;
+  }, [initialSeconds]);
+
   useEffect(() => {
     if (!isRunning || remaining <= 0) return;
 

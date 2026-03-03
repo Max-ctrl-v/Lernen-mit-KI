@@ -1,7 +1,7 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { generateWortfluessigkeitSet } from '../utils/wortfluessigkeitGenerator';
-import { saveExerciseResult } from '../utils/exerciseHistory';
+import { saveExerciseResult, saveSessionState, getSessionState, clearSessionState } from '../utils/exerciseHistory';
 import { useTimer } from '../hooks/useTimer';
 import Timer from '../components/Timer';
 import { UI } from '../utils/strings';
@@ -19,22 +19,37 @@ const EXAM_CONFIG = { questions: 15, timeSeconds: 20 * 60, difficulty: 'HARD' };
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function WortfluessigkeitPage() {
-  const [phase, setPhase] = useState('start');
-  const [mode, setMode] = useState('practice');
-  const [difficulty, setDifficulty] = useState('MEDIUM');
-  const [questionCount, setQuestionCount] = useState(10);
-  const [questions, setQuestions] = useState([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  // Object-keyed answers: { [questionIdx]: selectedOptionIndex }
-  const [answers, setAnswers] = useState({});
-  // Practice mode: tracks which questions have shown feedback
-  const [feedback, setFeedback] = useState({});
-  const [timerExpired, setTimerExpired] = useState(false);
+  // Restore saved session (lazy initializer — runs once)
+  const [restored] = useState(() => {
+    const s = getSessionState('wortfluessigkeit');
+    if (s?.phase !== 'quiz') return null;
+    // Adjust remaining for time elapsed since last save
+    if (s.remaining != null && s.savedAt) {
+      s.remaining = Math.max(0, s.remaining - Math.floor((Date.now() - s.savedAt) / 1000));
+      if (s.remaining <= 0) return null; // exam expired while away
+    }
+    return s;
+  });
 
-  const modeRef = useRef('practice');
-  const diffRef = useRef('MEDIUM');
+  const [phase, setPhase] = useState(restored ? 'quiz' : 'start');
+  const [mode, setMode] = useState(restored?.mode || 'practice');
+  const [difficulty, setDifficulty] = useState(restored?.difficulty || 'MEDIUM');
+  const [questionCount, setQuestionCount] = useState(restored?.questionCount || 10);
+  const [questions, setQuestions] = useState(restored?.questions || []);
+  const [currentIdx, setCurrentIdx] = useState(restored?.currentIdx || 0);
+  // Object-keyed answers: { [questionIdx]: selectedOptionIndex }
+  const [answers, setAnswers] = useState(restored?.answers || {});
+  // Practice mode: tracks which questions have shown feedback
+  const [feedback, setFeedback] = useState(restored?.feedback || {});
+  const [timerExpired, setTimerExpired] = useState(false);
+  const [timerInit, setTimerInit] = useState(restored?.remaining ?? EXAM_CONFIG.timeSeconds);
+
+  const modeRef = useRef(restored?.mode || 'practice');
+  const diffRef = useRef(restored?.difficulty || 'MEDIUM');
   const answersRef = useRef(answers);
   answersRef.current = answers;
+  const questionsRef = useRef(questions);
+  questionsRef.current = questions;
 
   const isExam = mode === 'exam';
 
@@ -54,17 +69,33 @@ export default function WortfluessigkeitPage() {
   // Timer for exam mode
   const handleTimerExpire = useCallback(() => {
     if (modeRef.current === 'exam') {
+      const qs = questionsRef.current;
+      const ans = answersRef.current;
+      let correct = 0;
+      qs.forEach((q, i) => { if (ans[i] === q.correctOptionIndex) correct++; });
+      saveExerciseResult('wortfluessigkeit', EXAM_CONFIG.difficulty, correct, qs.length, 'exam');
+      clearSessionState('wortfluessigkeit');
       setTimerExpired(true);
-      // Compute score from current answers
       setPhase('results');
     }
   }, []);
 
   const { remaining } = useTimer(
-    EXAM_CONFIG.timeSeconds,
+    timerInit,
     handleTimerExpire,
     modeRef.current === 'exam' && phase === 'quiz'
   );
+
+  // Persist session during quiz (remaining captured via closure, not as dep to avoid per-second writes)
+  useEffect(() => {
+    if (phase === 'quiz' && questions.length > 0) {
+      saveSessionState('wortfluessigkeit', {
+        phase, mode: modeRef.current, difficulty: diffRef.current, questionCount,
+        questions, currentIdx, answers, feedback,
+        remaining: modeRef.current === 'exam' ? remaining : null,
+      });
+    }
+  }, [phase, questions, currentIdx, answers, feedback, questionCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = useCallback(() => {
     const isEx = mode === 'exam';
@@ -78,6 +109,7 @@ export default function WortfluessigkeitPage() {
     setAnswers({});
     setFeedback({});
     setTimerExpired(false);
+    setTimerInit(EXAM_CONFIG.timeSeconds);
     setPhase('quiz');
   }, [questionCount, difficulty, mode]);
 
@@ -110,10 +142,12 @@ export default function WortfluessigkeitPage() {
     const finalScore = questions.reduce((acc, q, i) =>
       acc + (answers[i] === q.correctOptionIndex ? 1 : 0), 0);
     saveExerciseResult('wortfluessigkeit', diffRef.current, finalScore, questions.length, modeRef.current);
+    clearSessionState('wortfluessigkeit');
     setPhase('results');
   }, [questions, answers]);
 
   const handleRestart = useCallback(() => {
+    clearSessionState('wortfluessigkeit');
     setPhase('start');
     setQuestions([]);
     setCurrentIdx(0);
@@ -121,6 +155,21 @@ export default function WortfluessigkeitPage() {
     setFeedback({});
     setTimerExpired(false);
   }, []);
+
+  // Cancel / abandon mid-exercise — saves partial result to history
+  const handleCancel = useCallback(() => {
+    const diff = modeRef.current === 'exam' ? EXAM_CONFIG.difficulty : diffRef.current;
+    const currentScore = questions.reduce((acc, q, i) =>
+      acc + (answers[i] === q.correctOptionIndex ? 1 : 0), 0);
+    saveExerciseResult('wortfluessigkeit', diff, currentScore, questions.length, modeRef.current, { partial: true });
+    clearSessionState('wortfluessigkeit');
+    setPhase('start');
+    setQuestions([]);
+    setCurrentIdx(0);
+    setAnswers({});
+    setFeedback({});
+    setTimerExpired(false);
+  }, [questions, answers]);
 
   // ── Render: Start
   if (phase === 'start') {
@@ -156,6 +205,7 @@ export default function WortfluessigkeitPage() {
         onNext={handleNext}
         onPrev={handlePrev}
         onFinish={handleFinish}
+        onCancel={handleCancel}
         onGoTo={setCurrentIdx}
         score={score}
         answeredCount={answeredCount}
@@ -367,6 +417,7 @@ function QuestionScreen({
   onNext,
   onPrev,
   onFinish,
+  onCancel,
   onGoTo,
   score,
   answeredCount,
@@ -624,6 +675,13 @@ function QuestionScreen({
           </div>
         )
       )}
+
+      {/* Cancel link */}
+      <div className="text-center pt-2">
+        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+          Abbrechen
+        </button>
+      </div>
     </div>
   );
 }
